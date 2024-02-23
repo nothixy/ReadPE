@@ -7,7 +7,8 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <limits.h>
+
+#define MAX_NAME_SIZE 255
 
 #define COFF_HEADER_MAGIC 0x4550
 #define DOS_HEADER_MAGIC  0x5a4d
@@ -299,7 +300,7 @@ static bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
     fseek(pe_file, seek_pos, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
     int character_count = 0;
-    *name_addr = malloc(NAME_MAX+1);
+    *name_addr = malloc(MAX_NAME_SIZE+1);
     int c;
     do
     {
@@ -310,7 +311,7 @@ static bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
         (*name_addr)[character_count] = (char)c;
         character_count++;
     }
-    while (c != 0 && character_count < NAME_MAX);
+    while (c != 0 && character_count < MAX_NAME_SIZE);
 
     (*name_addr)[character_count] = '\0';
 
@@ -374,11 +375,14 @@ static inline bool read_import_function_name(FILE* pe_file, Megastructure_Inform
     return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_index][function_name] + 2, &(megastructure_information->import_function_names[import_index][function_name]));
 }
 
-void read_export_directory(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_export_directory(FILE* pe_file, Megastructure_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->directory_addresses[0].address, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
-    fread(&(megastructure_information->image_export), sizeof(Image_Export_Directory), 1, pe_file);
+    if(fread(&(megastructure_information->image_export), sizeof(Image_Export_Directory), 1, pe_file) <= 0)
+    {
+        return false;
+    }
     megastructure_information->image_export.name = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->image_export.name);
     megastructure_information->image_export.name_pointer = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->image_export.name_pointer);
     if (megastructure_information->image_export.name_count != 0)
@@ -386,6 +390,8 @@ void read_export_directory(FILE* pe_file, Megastructure_Information* megastructu
         megastructure_information->export_module_functions = calloc(megastructure_information->image_export.name_count, sizeof(char*));
         megastructure_information->export_module_function_pointers = calloc(megastructure_information->image_export.name_count, sizeof(uint32_t));
     }
+
+    return true;
 }
 
 static inline bool read_export_module_name(FILE* pe_file, Megastructure_Information* megastructure_information)
@@ -393,15 +399,20 @@ static inline bool read_export_module_name(FILE* pe_file, Megastructure_Informat
     return read_single_name(pe_file, megastructure_information->image_export.name, &(megastructure_information->export_module_name));
 }
 
-void read_export_function_name_pointers(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_export_function_name_pointers(FILE* pe_file, Megastructure_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->image_export.name, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
-    fread(megastructure_information->export_module_function_pointers, sizeof(uint32_t), megastructure_information->image_export.name_count, pe_file);
+    if(fread(megastructure_information->export_module_function_pointers, sizeof(uint32_t), megastructure_information->image_export.name_count, pe_file) <= 0)
+    {
+        return false;
+    }
     for (uint32_t i = 0; i < megastructure_information->image_export.name_count; i++)
     {
         megastructure_information->export_module_function_pointers[i] = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->export_module_function_pointers[i]);
     }
+
+    return true;
 }
 
 static inline bool read_export_function_name(FILE* pe_file, Megastructure_Information* megastructure_information, uint32_t name_index)
@@ -409,7 +420,7 @@ static inline bool read_export_function_name(FILE* pe_file, Megastructure_Inform
     return read_single_name(pe_file, megastructure_information->export_module_function_pointers[name_index], &(megastructure_information->export_module_functions[name_index]));
 }
 
-void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_next_data(FILE* pe_file, Megastructure_Information* megastructure_information)
 {
     while (true)
     {
@@ -465,7 +476,7 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
         }
         if (min_address == (uint64_t) -1)
         {
-            break;
+            return true;
         }
         for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
         {
@@ -474,18 +485,25 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
                 switch (i)
                 {
                     case 0:
-                        read_export_directory(pe_file, megastructure_information);
+                        if(!read_export_directory(pe_file, megastructure_information))
+                        {
+                            return false;
+                        }
                         megastructure_information->directory_addresses[i].address = 0;
                         break;
                     case 1:
-                        read_import_table(pe_file, megastructure_information);
+                        if(!read_import_table(pe_file, megastructure_information))
+                        {
+                            return false;
+                        }
                         megastructure_information->directory_addresses[i].address = 0;
                         break;
                     case 4:
-                        read_certificate(pe_file, megastructure_information);
+                        if(!read_certificate(pe_file, megastructure_information))
+                        {
+                            return false;
+                        }
                         megastructure_information->directory_addresses[i].address = 0;
-                        break;
-                    default:
                         break;
                 }
                 goto NEXT_ITERATION;
@@ -497,13 +515,19 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
             {
                 if (megastructure_information->image_imports[i].something.original_first_thunk == min_address)
                 {
-                    read_import_lookup_descriptors(pe_file, megastructure_information, i);
+                    if(!read_import_lookup_descriptors(pe_file, megastructure_information, i))
+                    {
+                        return false;
+                    }
                     megastructure_information->image_imports[i].something.original_first_thunk = 0;
                     goto NEXT_ITERATION;
                 }
                 if (megastructure_information->image_imports[i].name == min_address)
                 {
-                    read_import_dll_name(pe_file, megastructure_information, i);
+                    if(!read_import_dll_name(pe_file, megastructure_information, i))
+                    {
+                        return false;
+                    }
                     megastructure_information->image_imports[i].name = 0;
                     goto NEXT_ITERATION;
                 }
@@ -513,7 +537,10 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
                     {
                         if (megastructure_information->image_lookup_descriptors[i][j] == min_address)
                         {
-                            read_import_function_name(pe_file, megastructure_information, i, j);
+                            if(!read_import_function_name(pe_file, megastructure_information, i, j))
+                            {
+                                return false;
+                            }
                             megastructure_information->image_lookup_descriptors[i][j] = 0;
                             goto NEXT_ITERATION;
                         }
@@ -523,13 +550,19 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
         }
         if (megastructure_information->image_export.name == min_address)
         {
-            read_export_module_name(pe_file, megastructure_information);
+            if(!read_export_module_name(pe_file, megastructure_information))
+            {
+                return false;
+            }
             megastructure_information->image_export.name = 0;
             goto NEXT_ITERATION;
         }
         if (megastructure_information->image_export.name_pointer == min_address)
         {
-            read_export_function_name_pointers(pe_file, megastructure_information);
+            if(!read_export_function_name_pointers(pe_file, megastructure_information))
+            {
+                return false;
+            }
             megastructure_information->image_export.name_pointer = 0;
             goto NEXT_ITERATION;
         }
@@ -539,7 +572,10 @@ void read_next_data(FILE* pe_file, Megastructure_Information* megastructure_info
             {
                 if (megastructure_information->export_module_function_pointers[i] == min_address)
                 {
-                    read_export_function_name(pe_file, megastructure_information, i);
+                    if(!read_export_function_name(pe_file, megastructure_information, i))
+                    {
+                        return false;
+                    }
                     megastructure_information->export_module_function_pointers[i] = 0;
                     goto NEXT_ITERATION;
                 }
@@ -549,8 +585,9 @@ NEXT_ITERATION:
     }
 }
 
-void read_pe(const char* filename)
+bool read_pe(const char* filename)
 {
+    bool success = false;
     Megastructure_Information megastructure_information = {0};
     PE_Optional_Header pe_optional_header;
     pe_optional_header.data_directory = NULL;
@@ -579,31 +616,45 @@ void read_pe(const char* filename)
         fputs("Error: this file doesn't have an optional header, I don't know how to proceed\n", stderr);
         goto FINISH;
     }
-    fread(&pe_optional_header, offsetof(PE_Optional_Header, stack_reserved_size), 1, pe_file);
+    if(fread(&pe_optional_header, offsetof(PE_Optional_Header, stack_reserved_size), 1, pe_file) <= 0)
+    {
+        fputs("Error: file corrupted\n", stderr);
+        goto FINISH;
+    }
     if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64)
     {
-        fread(&(pe_optional_header.stack_reserved_size), sizeof(uint64_t), 1, pe_file);
-        fread(&(pe_optional_header.stack_commit_size), sizeof(uint64_t), 1, pe_file);
-        fread(&(pe_optional_header.heap_reserve_size), sizeof(uint64_t), 1, pe_file);
-        fread(&(pe_optional_header.heap_commit_size), sizeof(uint64_t), 1, pe_file);
+        if(fread(&(pe_optional_header.stack_reserved_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.stack_commit_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.heap_reserve_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.heap_commit_size), sizeof(uint64_t), 1, pe_file) <= 0)
+        {
+            fputs("Error: file corrupted\n", stderr);
+            goto FINISH;
+        }
     }
     else if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_32)
     {
-        fread(&(pe_optional_header.stack_reserved_size), sizeof(uint32_t), 1, pe_file);
-        fread(&(pe_optional_header.stack_commit_size), sizeof(uint32_t), 1, pe_file);
-        fread(&(pe_optional_header.heap_reserve_size), sizeof(uint32_t), 1, pe_file);
-        fread(&(pe_optional_header.heap_commit_size), sizeof(uint32_t), 1, pe_file);
+        if(fread(&(pe_optional_header.stack_reserved_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.stack_commit_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.heap_reserve_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header.heap_commit_size), sizeof(uint32_t), 1, pe_file) <= 0)
+        {
+            fputs("Error: file corrupted\n", stderr);
+            goto FINISH;
+        }
     }
     else
     {
         fputs("Error: this tool only supports PE executable files\n", stderr);
         goto FINISH;
     }
-    fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file);
-    fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file);
-
-    // There are 16 elements for PE files, however if this file is not a PE file, it can have more
-    fread(megastructure_information.directory_addresses, sizeof(Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file);
+    if(fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file) <= 0
+        || fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file) <= 0
+        || fread(megastructure_information.directory_addresses, sizeof(Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
+    {
+        fputs("Error: file corrupted\n", stderr);
+        goto FINISH;
+    }
 
     if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
     {
@@ -617,7 +668,11 @@ void read_pe(const char* filename)
         fputs("An error has occurred\n", stderr);
         goto FINISH;
     }
-    fread(megastructure_information.section_headers, sizeof(Section_Header), coff_header.section_count, pe_file);
+    if(fread(megastructure_information.section_headers, sizeof(Section_Header), coff_header.section_count, pe_file) <= 0)
+    {
+        fputs("Error: file corrupted\n", stderr);
+        goto FINISH;
+    }
 
     megastructure_information.section_count = coff_header.section_count;
 
@@ -637,7 +692,11 @@ void read_pe(const char* filename)
 
     megastructure_information.bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
 
-    read_next_data(pe_file, &megastructure_information);
+    if(!read_next_data(pe_file, &megastructure_information))
+    {
+        fputs("Error: file corrupted\n", stderr);
+        goto FINISH;
+    }
 
     FILE* cert = fopen("certificate.der", "wb");
     if (cert != NULL)
@@ -668,6 +727,8 @@ void read_pe(const char* filename)
             fprintf(stdout, "Function = %s\n", megastructure_information.export_module_functions[i]);
         }
     }
+
+    success = true;
 
 FINISH:
     free(megastructure_information.signature);
@@ -714,8 +775,10 @@ FINISH:
     free(megastructure_information.import_dll_names);
     free(megastructure_information.import_function_names);
     free(megastructure_information.image_lookup_descriptors);
-    fclose(pe_file);
-    return;
+    if(pe_file != NULL)
+        fclose(pe_file);
+    
+    return success;
 }
 
 int main(int argc, char* argv[])
@@ -725,7 +788,6 @@ int main(int argc, char* argv[])
         fputs("Invalid number of arguments\n", stderr);
         return 1;
     }
-    read_pe(argv[1]);
-
-    return 0;
+    
+    return !read_pe(argv[1]);
 }
