@@ -329,17 +329,17 @@ bool read_import_lookup_descriptors(FILE* pe_file, Megastructure_Information* me
     assert(is_seek_forward(ftell(pe_file)));
     int count = 0;
     megastructure_information->image_lookup_descriptors[import_index] = malloc(0);
-    uint64_t lookup_descriptor64;
+    uint64_t lookup_descriptor;
     uint32_t lookup_descriptor32;
     while (true)
     {
         if (megastructure_information->bits_64)
         {
-            if(fread(&lookup_descriptor64, sizeof(uint64_t), 1, pe_file) <= 0)
+            if(fread(&lookup_descriptor, sizeof(uint64_t), 1, pe_file) <= 0)
             {
                 return false;
             }
-            if ((lookup_descriptor64 >> 63) == 1)
+            if ((lookup_descriptor >> 63) == 1)
             {
                 continue;
             }
@@ -354,10 +354,11 @@ bool read_import_lookup_descriptors(FILE* pe_file, Megastructure_Information* me
             {
                 continue;
             }
+            lookup_descriptor = lookup_descriptor32;
         }
         megastructure_information->image_lookup_descriptors[import_index] = realloc(megastructure_information->image_lookup_descriptors[import_index], (count + 1) * sizeof(uint32_t));
-        uint32_t rva = lookup_descriptor64 & ((uint32_t) (1 << 31) - 1);
-        if (rva == 0 && (!megastructure_information->bits_64 || (uint32_t) (lookup_descriptor64 >> 31) == 0))
+        uint32_t rva = lookup_descriptor & ((uint32_t) (1 << 31) - 1);
+        if (rva == 0 && (!megastructure_information->bits_64 || (uint32_t) (lookup_descriptor >> 31) == 0))
         {
             megastructure_information->image_lookup_descriptors[import_index][count] = (uint32_t)(-1);
             megastructure_information->import_function_names[import_index] = calloc(count+1, sizeof(char*));
