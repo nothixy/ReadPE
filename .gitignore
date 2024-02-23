@@ -1,2 +1,5 @@
+.vscode
+certificate.der
 executables/*
 !executables/.gitkeep
+readpe2
