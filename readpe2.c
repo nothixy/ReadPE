@@ -743,7 +743,7 @@ FINISH:
     }
     if (megastructure_information.import_function_names != NULL)
     {
-        for (uint32_t i = 0; i < megastructure_information.image_import_count; i++)
+        for (uint32_t i = 0; i < megastructure_information.image_import_count && megastructure_information.import_function_names[i] != NULL; i++)
         {
             for (uint32_t j = 0; megastructure_information.import_function_names[i][j] != NULL; j++)
             {
