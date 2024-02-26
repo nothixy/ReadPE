@@ -130,6 +130,7 @@ typedef struct _pe_information {
     char*** import_function_names;
     char** export_module_functions;
     char** import_dll_names;
+    uint32_t* import_function_allocated_per_dll;
     char* export_module_name;
     uint32_t signature_length;
     uint16_t image_import_count;

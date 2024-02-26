@@ -18,6 +18,10 @@ int main(int argc, char* argv[])
     for (uint32_t i = 0; i < pe_information->image_import_count; i++)
     {
         printf("DLL = %s\n", pe_information->import_dll_names[i]);
+        if(pe_information->image_lookup_descriptors[i] == NULL)
+        {
+            continue;
+        }
         for (uint32_t j = 0; pe_information->image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
         {
             printf("Function = %s\n", pe_information->import_function_names[i][j]);

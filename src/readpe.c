@@ -51,6 +51,7 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
         megastructure_information->import_dll_names = calloc(megastructure_information->image_import_count, sizeof(char*));
         megastructure_information->import_function_names = calloc(megastructure_information->image_import_count, sizeof(char**));
         megastructure_information->image_lookup_descriptors = calloc(megastructure_information->image_import_count, sizeof(uint32_t*));
+        megastructure_information->import_function_allocated_per_dll = calloc(megastructure_information->image_import_count, sizeof(uint32_t));
     }
     return true;
 }
@@ -88,6 +89,7 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
     } while(x != LOOKUP_DESCRIPTOR_END);
 
     megastructure_information->import_function_names[import_index] = calloc(count, sizeof(char*));
+    megastructure_information->import_function_allocated_per_dll[import_index] = count;
     return true;
 }
 
@@ -467,9 +469,13 @@ void free_megastructure(PE_Information** pps)
     }
     if ((*pps)->import_function_names != NULL)
     {
-        for (uint32_t i = 0; i < (*pps)->image_import_count && (*pps)->import_function_names[i] != NULL; i++)
+        for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
         {
-            for (uint32_t j = 0; (*pps)->import_function_names[i][j] != NULL; j++)
+            if((*pps)->import_function_names[i] == NULL)
+            {
+                continue;
+            }
+            for (uint32_t j = 0; j < (*pps)->import_function_allocated_per_dll[i]; j++)
             {
                 free((*pps)->import_function_names[i][j]);
             }
@@ -480,7 +486,7 @@ void free_megastructure(PE_Information** pps)
     {
         for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
         {
-            free((*pps)->image_lookup_descriptors[i]);
+            free(((*pps)->image_lookup_descriptors)[i]);
         }
     }
     if ((*pps)->export_module_functions != NULL)
@@ -500,6 +506,7 @@ void free_megastructure(PE_Information** pps)
     free((*pps)->import_dll_names);
     free((*pps)->import_function_names);
     free((*pps)->image_lookup_descriptors);
+    free((*pps)->import_function_allocated_per_dll);
 
     free(*pps);
     *pps = NULL;
