@@ -268,10 +268,9 @@ NEXT_ITERATION:
     }
 }
 
-bool read_pe(const char* filename)
+Megastructure_Information* read_pe(const char* filename)
 {
-    bool success = false;
-    Megastructure_Information megastructure_information = {0};
+    Megastructure_Information* megastructure_information = NULL;
     PE_Optional_Header pe_optional_header;
     pe_optional_header.data_directory = NULL;
     COFF_Header coff_header;
@@ -280,29 +279,29 @@ bool read_pe(const char* filename)
     if (pe_file == NULL)
     {
         fputs("Error: can't open file\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
     if (!read_dos_header(pe_file, &dos_header))
     {
         fputs("Error: invalid DOS header\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
     fseek(pe_file, dos_header.lfa_new, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
     if (!read_coff_header(pe_file, &coff_header))
     {
         fputs("Error: invalid COFF header\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
     if (coff_header.optional_header_size == 0)
     {
         fputs("Error: this file doesn't have an optional header, I don't know how to proceed\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
     if(fread(&pe_optional_header, offsetof(PE_Optional_Header, stack_reserved_size), 1, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
     if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64)
     {
@@ -312,7 +311,7 @@ bool read_pe(const char* filename)
             || fread(&(pe_optional_header.heap_commit_size), sizeof(uint64_t), 1, pe_file) <= 0)
         {
             fputs("Error: file corrupted\n", stderr);
-            goto FINISH;
+            goto ERROR;
         }
     }
     else if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_32)
@@ -323,20 +322,23 @@ bool read_pe(const char* filename)
             || fread(&(pe_optional_header.heap_commit_size), sizeof(uint32_t), 1, pe_file) <= 0)
         {
             fputs("Error: file corrupted\n", stderr);
-            goto FINISH;
+            goto ERROR;
         }
     }
     else
     {
         fputs("Error: this tool only supports PE executable files\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
+
+    megastructure_information = (Megastructure_Information*) calloc(1, sizeof(Megastructure_Information));
+
     if(fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file) <= 0
         || fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file) <= 0
-        || fread(megastructure_information.directory_addresses, sizeof(Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
+        || fread(megastructure_information->directory_addresses, sizeof(Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
 
     if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
@@ -345,46 +347,46 @@ bool read_pe(const char* filename)
         assert(is_seek_forward(ftell(pe_file)));
     }
 
-    megastructure_information.section_headers = malloc(coff_header.section_count * sizeof(Section_Header));
-    if (megastructure_information.section_headers == NULL)
+    megastructure_information->section_headers = malloc(coff_header.section_count * sizeof(Section_Header));
+    if (megastructure_information->section_headers == NULL)
     {
         fputs("An error has occurred\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
-    if(fread(megastructure_information.section_headers, sizeof(Section_Header), coff_header.section_count, pe_file) <= 0)
+    if(fread(megastructure_information->section_headers, sizeof(Section_Header), coff_header.section_count, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
 
-    megastructure_information.section_count = coff_header.section_count;
+    megastructure_information->section_count = coff_header.section_count;
 
     for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
         if (i != 4)
         {
-            megastructure_information.directory_addresses[i].address = find_offset_from_rva(coff_header.section_count, megastructure_information.section_headers, megastructure_information.directory_addresses[i].address);
+            megastructure_information->directory_addresses[i].address = find_offset_from_rva(coff_header.section_count, megastructure_information->section_headers, megastructure_information->directory_addresses[i].address);
         }
 
         // Temporary because I can't parse other information
         if (i != 0 && i != 1 && i != 4)
         {
-            megastructure_information.directory_addresses[i].address = 0;
+            megastructure_information->directory_addresses[i].address = 0;
         }
     }
 
-    megastructure_information.bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
+    megastructure_information->bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
 
-    if(!read_next_data(pe_file, &megastructure_information))
+    if(!read_next_data(pe_file, megastructure_information))
     {
         fputs("Error: file corrupted\n", stderr);
-        goto FINISH;
+        goto ERROR;
     }
 
     FILE* cert = fopen("certificate.der", "wb");
     if (cert != NULL)
     {
-        fwrite(megastructure_information.signature, sizeof(uint8_t), megastructure_information.signature_length, cert);
+        fwrite(megastructure_information->signature, sizeof(uint8_t), megastructure_information->signature_length, cert);
         fclose(cert);
     }
     else
@@ -392,76 +394,73 @@ bool read_pe(const char* filename)
         fputs("Can't write certificate file to certificate.der, ignoring\n", stderr);
     }
 
-    for (uint32_t i = 0; i < megastructure_information.image_import_count; i++)
-    {
-        fprintf(stdout, "DLL = %s\n", megastructure_information.import_dll_names[i]);
-        for (uint32_t j = 0; megastructure_information.image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
-        {
-            fprintf(stdout, "Function = %s\n", megastructure_information.import_function_names[i][j]);
-        }
-    }
 
-    if (megastructure_information.export_module_name != NULL)
-    {
-        fprintf(stdout, "Module name = %s\n", megastructure_information.export_module_name);
+    if(pe_file != NULL)
+        fclose(pe_file);
 
-        for (uint32_t i = 0; i < megastructure_information.image_export.name_count; i++)
-        {
-            fprintf(stdout, "Function = %s\n", megastructure_information.export_module_functions[i]);
-        }
-    }
+    return megastructure_information;
 
-    success = true;
-
-FINISH:
-    free(megastructure_information.signature);
-    free(megastructure_information.section_headers);
-    if (megastructure_information.import_dll_names != NULL)
-    {
-        for (uint32_t i = 0; i < megastructure_information.image_import_count; i++)
-        {
-            free(megastructure_information.import_dll_names[i]);
-        }
-    }
-    if (megastructure_information.import_function_names != NULL)
-    {
-        for (uint32_t i = 0; i < megastructure_information.image_import_count && megastructure_information.import_function_names[i] != NULL; i++)
-        {
-            for (uint32_t j = 0; megastructure_information.import_function_names[i][j] != NULL; j++)
-            {
-                free(megastructure_information.import_function_names[i][j]);
-            }
-            free(megastructure_information.import_function_names[i]);
-        }
-    }
-    if (megastructure_information.image_lookup_descriptors != NULL)
-    {
-        for (uint32_t i = 0; i < megastructure_information.image_import_count; i++)
-        {
-            free(megastructure_information.image_lookup_descriptors[i]);
-        }
-    }
-    if (megastructure_information.export_module_functions != NULL)
-    {
-        for (uint32_t i = 0; i < megastructure_information.image_export.function_count; i++)
-        {
-            free(megastructure_information.export_module_functions[i]);
-        }
-    }
-    for (uint32_t i = 0; i < megastructure_information.image_export.name_count; i++)
-    {
-        free(megastructure_information.export_module_functions[i]);
-    }
-    free(megastructure_information.export_module_functions);
-    free(megastructure_information.export_module_name);
-    free(megastructure_information.image_imports);
-    free(megastructure_information.import_dll_names);
-    free(megastructure_information.import_function_names);
-    free(megastructure_information.image_lookup_descriptors);
+ERROR:
+    free_megastructure(&megastructure_information);
     if(pe_file != NULL)
         fclose(pe_file);
     
-    return success;
+    return NULL;
 }
 
 
+void free_megastructure(Megastructure_Information** pps)
+{
+    if(*pps == NULL)
+    {
+        return;
+    }
+
+    free((*pps)->signature);
+    free((*pps)->section_headers);
+    if ((*pps)->import_dll_names != NULL)
+    {
+        for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
+        {
+            free((*pps)->import_dll_names[i]);
+        }
+    }
+    if ((*pps)->import_function_names != NULL)
+    {
+        for (uint32_t i = 0; i < (*pps)->image_import_count && (*pps)->import_function_names[i] != NULL; i++)
+        {
+            for (uint32_t j = 0; (*pps)->import_function_names[i][j] != NULL; j++)
+            {
+                free((*pps)->import_function_names[i][j]);
+            }
+            free((*pps)->import_function_names[i]);
+        }
+    }
+    if ((*pps)->image_lookup_descriptors != NULL)
+    {
+        for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
+        {
+            free((*pps)->image_lookup_descriptors[i]);
+        }
+    }
+    if ((*pps)->export_module_functions != NULL)
+    {
+        for (uint32_t i = 0; i < (*pps)->image_export.function_count; i++)
+        {
+            free((*pps)->export_module_functions[i]);
+        }
+    }
+    for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
+    {
+        free((*pps)->export_module_functions[i]);
+    }
+    free((*pps)->export_module_functions);
+    free((*pps)->export_module_name);
+    free((*pps)->image_imports);
+    free((*pps)->import_dll_names);
+    free((*pps)->import_function_names);
+    free((*pps)->image_lookup_descriptors);
+
+    free(*pps);
+    *pps = NULL;
+}
