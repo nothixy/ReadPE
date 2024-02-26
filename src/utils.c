@@ -12,7 +12,7 @@ bool is_seek_forward(uint32_t seek_addr)
     return true;
 }
 
-uint32_t find_offset_from_rva(int section_count, Section_Header* section_headers, uint32_t rva)
+uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_headers, uint32_t rva)
 {
     for (int i = 0; i < section_count; i++)
     {

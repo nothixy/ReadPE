@@ -42,30 +42,31 @@ enum IMAGE_DIRECTORY_ENTRY {
 
 
 bool is_seek_forward(uint32_t seek_addr);
-uint32_t find_offset_from_rva(int section_count, Section_Header* section_headers, uint32_t rva);
+uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_headers, uint32_t rva);
 
-bool read_dos_header(FILE* pe_file, DOS_Header* dos_header);
-bool read_coff_header(FILE* pe_file, COFF_Header* coff_header);
-bool read_certificate(FILE* pe_file, Megastructure_Information* megastructure_information);
+bool read_dos_header(FILE* pe_file, PE_DOS_Header* dos_header);
+bool read_coff_header(FILE* pe_file, PE_COFF_Header* coff_header);
+bool read_certificate(FILE* pe_file, PE_Information* megastructure_information);
 bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr);
-bool read_export_directory(FILE* pe_file, Megastructure_Information* megastructure_information);
+bool read_export_directory(FILE* pe_file, PE_Information* megastructure_information);
+int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_information);
 
-static inline bool read_import_dll_name(FILE* pe_file, Megastructure_Information* megastructure_information, uint32_t import_index)
+static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
     return read_single_name(pe_file, megastructure_information->image_imports[import_index].name, &(megastructure_information->import_dll_names[import_index]));
 }
 
-static inline bool read_import_function_name(FILE* pe_file, Megastructure_Information* megastructure_information, uint32_t import_index, uint32_t function_name)
+static inline bool read_import_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index, uint32_t function_name)
 {
     return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_index][function_name] + 2, &(megastructure_information->import_function_names[import_index][function_name]));
 }
 
-static inline bool read_export_module_name(FILE* pe_file, Megastructure_Information* megastructure_information)
+static inline bool read_export_module_name(FILE* pe_file, PE_Information* megastructure_information)
 {
     return read_single_name(pe_file, megastructure_information->image_export.name, &(megastructure_information->export_module_name));
 }
 
-static inline bool read_export_function_name(FILE* pe_file, Megastructure_Information* megastructure_information, uint32_t name_index)
+static inline bool read_export_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t name_index)
 {
     return read_single_name(pe_file, megastructure_information->export_module_function_pointers[name_index], &(megastructure_information->export_module_functions[name_index]));
 }

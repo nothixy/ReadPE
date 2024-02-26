@@ -9,32 +9,32 @@ int main(int argc, char* argv[])
         return 1;
     }
     
-    Megastructure_Information* megastructure_information = read_pe(argv[1]);
-    if(megastructure_information == NULL)
+    PE_Information* pe_information = read_pe(argv[1]);
+    if(pe_information == NULL)
     {
         return 1;
     }
 
-    for (uint32_t i = 0; i < megastructure_information->image_import_count; i++)
+    for (uint32_t i = 0; i < pe_information->image_import_count; i++)
     {
-        fprintf(stdout, "DLL = %s\n", megastructure_information->import_dll_names[i]);
-        for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
+        printf("DLL = %s\n", pe_information->import_dll_names[i]);
+        for (uint32_t j = 0; pe_information->image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
         {
-            fprintf(stdout, "Function = %s\n", megastructure_information->import_function_names[i][j]);
+            printf("Function = %s\n", pe_information->import_function_names[i][j]);
         }
     }
 
-    if (megastructure_information->export_module_name != NULL)
+    if (pe_information->export_module_name != NULL)
     {
-        fprintf(stdout, "Module name = %s\n", megastructure_information->export_module_name);
+        printf("Module name = %s\n", pe_information->export_module_name);
 
-        for (uint32_t i = 0; i < megastructure_information->image_export.name_count; i++)
+        for (uint32_t i = 0; i < pe_information->image_export.name_count; i++)
         {
-            fprintf(stdout, "Function = %s\n", megastructure_information->export_module_functions[i]);
+            printf("Function = %s\n", pe_information->export_module_functions[i]);
         }
     }
 
-    free_megastructure(&megastructure_information);
+    free_megastructure(&pe_information);
 
     return 0;
 }

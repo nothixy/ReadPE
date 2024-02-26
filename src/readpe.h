@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct _dos_header {
+typedef struct _pe_dos_header {
     uint16_t magic;
     uint16_t last_size;
     uint16_t block_count;
@@ -21,9 +21,9 @@ typedef struct _dos_header {
     uint16_t oem_info;
     uint16_t reserved2[10];
     uint16_t lfa_new;
-} DOS_Header;
+} PE_DOS_Header;
 
-typedef struct _coff_header {
+typedef struct _pe_coff_header {
     uint32_t magic;
     uint16_t arch;
     uint16_t section_count;
@@ -32,12 +32,12 @@ typedef struct _coff_header {
     uint32_t symbol_count;
     uint16_t optional_header_size;
     uint16_t characteristics;
-} COFF_Header;
+} PE_COFF_Header;
 
-typedef struct _data_directory {
+typedef struct _pe_data_directory {
     uint32_t address;
     uint32_t size;
-} Data_Directory;
+} PE_Data_Directory;
 
 typedef struct _pe_optional_header {
     uint16_t signature;
@@ -69,10 +69,10 @@ typedef struct _pe_optional_header {
     uint64_t heap_commit_size;       // On a 32-bit PE this should be a uint32_t but the code will handle it
     uint32_t loader_flags;
     uint32_t rva_number_size;
-    Data_Directory* data_directory;
+    PE_Data_Directory* data_directory;
 } PE_Optional_Header;
 
-typedef struct _section_header {
+typedef struct _pe_section_header {
     char name[8];
 
     union {
@@ -88,9 +88,9 @@ typedef struct _section_header {
     uint16_t relocation_count;
     uint16_t line_number_count;
     uint32_t characteristics;
-} Section_Header;
+} PE_Section_Header;
 
-typedef struct _image_import_descriptor {
+typedef struct _pe_image_import_descriptor {
     union {
         uint32_t characteristics;
         uint32_t original_first_thunk;
@@ -100,9 +100,9 @@ typedef struct _image_import_descriptor {
     uint32_t forwarder_chain;
     uint32_t name;
     uint32_t first_thunk;
-} Image_Import_Descriptor;
+} PE_Image_Import_Descriptor;
 
-typedef struct _image_export_directory {
+typedef struct _pe_image_export_directory {
     uint32_t characteristics;
     uint32_t timestamp;
     uint16_t version_major;
@@ -114,13 +114,13 @@ typedef struct _image_export_directory {
     uint32_t function_pointer;
     uint32_t name_pointer;
     uint32_t name_ordinals_pointer;
-} Image_Export_Directory;
+} PE_Image_Export_Directory;
 
-typedef struct _megastructure_information {
-    Image_Export_Directory image_export;
-    Data_Directory directory_addresses[16];
-    Section_Header* section_headers;
-    Image_Import_Descriptor* image_imports;
+typedef struct _pe_information {
+    PE_Image_Export_Directory image_export;
+    PE_Data_Directory directory_addresses[16];
+    PE_Section_Header* section_headers;
+    PE_Image_Import_Descriptor* image_imports;
     uint32_t** image_lookup_descriptors;
     uint32_t* export_module_function_pointers;
     uint8_t* signature;
@@ -132,7 +132,7 @@ typedef struct _megastructure_information {
     uint16_t image_import_count;
     uint16_t section_count;
     bool bits_64;
-} Megastructure_Information;
+} PE_Information;
 
-Megastructure_Information* read_pe(const char* filename);
-void free_megastructure(Megastructure_Information** pps);
+PE_Information* read_pe(const char* filename);
+void free_megastructure(PE_Information** pps);

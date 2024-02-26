@@ -1,32 +1,42 @@
 #include "src/readpe_internal.h"
 
 
-static inline bool is_last_image_import_descriptor(Image_Import_Descriptor* descriptor)
+static inline bool is_last_image_import_descriptor(PE_Image_Import_Descriptor* descriptor)
 {
     return descriptor->first_thunk == 0 && descriptor->forwarder_chain == 0 && descriptor->name == 0 && descriptor->something.original_first_thunk == 0 && descriptor->timestamp == 0;
 }
 
-static bool read_import_table(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_import_table(FILE* pe_file, PE_Information* megastructure_information)
 {
-    fseek(pe_file, megastructure_information->directory_addresses[1].address, SEEK_SET);
+    bool last_import_desc = false;
+
+    fseek(pe_file, megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
-    megastructure_information->image_imports = malloc(0);
-    while (true)
+
+    megastructure_information->image_imports = NULL;
+    while (!last_import_desc)
     {
-        megastructure_information->image_imports = realloc(megastructure_information->image_imports, (megastructure_information->image_import_count + 1) * sizeof(Image_Import_Descriptor));
-        if(fread(&megastructure_information->image_imports[megastructure_information->image_import_count], sizeof(Image_Import_Descriptor), 1, pe_file) <= 0)
+        PE_Image_Import_Descriptor import_descriptor;
+
+        if(fread(&import_descriptor, sizeof(PE_Image_Import_Descriptor), 1, pe_file) <= 0)
         {
             return false;
         }
-        megastructure_information->image_imports[megastructure_information->image_import_count].name = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->image_imports[megastructure_information->image_import_count].name);
-        megastructure_information->image_imports[megastructure_information->image_import_count].something.original_first_thunk = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->image_imports[megastructure_information->image_import_count].something.original_first_thunk);
-        if (is_last_image_import_descriptor(&(megastructure_information->image_imports[megastructure_information->image_import_count])))
+
+        last_import_desc = is_last_image_import_descriptor(&import_descriptor);
+
+        if(!last_import_desc)
         {
-            megastructure_information->image_imports = realloc(megastructure_information->image_imports, megastructure_information->image_import_count * sizeof(Image_Import_Descriptor));
-            break;
+            megastructure_information->image_imports = realloc(megastructure_information->image_imports, (megastructure_information->image_import_count + 1) * sizeof(PE_Image_Import_Descriptor));
+            megastructure_information->image_imports[megastructure_information->image_import_count] = import_descriptor;
+
+            megastructure_information->image_imports[megastructure_information->image_import_count].name = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, import_descriptor.name);
+            megastructure_information->image_imports[megastructure_information->image_import_count].something.original_first_thunk = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, import_descriptor.something.original_first_thunk);
+
+            megastructure_information->image_import_count++;
         }
-        megastructure_information->image_import_count++;
     }
+
     if (megastructure_information->image_import_count != 0)
     {
         megastructure_information->import_dll_names = calloc(megastructure_information->image_import_count, sizeof(char*));
@@ -37,59 +47,42 @@ static bool read_import_table(FILE* pe_file, Megastructure_Information* megastru
 }
 
 
-
-static bool read_import_lookup_descriptors(FILE* pe_file, Megastructure_Information* megastructure_information, uint32_t import_index)
+static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
     fseek(pe_file, megastructure_information->image_imports[import_index].something.original_first_thunk, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
+
+    int64_t x;
     int count = 0;
     megastructure_information->image_lookup_descriptors[import_index] = malloc(0);
-    uint64_t lookup_descriptor;
-    uint32_t lookup_descriptor32;
-    while (true)
+    do
     {
-        if (megastructure_information->bits_64)
-        {
-            if(fread(&lookup_descriptor, sizeof(uint64_t), 1, pe_file) <= 0)
-            {
-                return false;
-            }
-            if ((lookup_descriptor >> 63) == 1)
-            {
-                continue;
-            }
-        }
-        else
-        {
-            if(fread(&lookup_descriptor32, sizeof(uint32_t), 1, pe_file) <= 0)
-            {
-                return false;
-            }
-            if ((lookup_descriptor32 >> 31) == 1)
-            {
-                continue;
-            }
-            lookup_descriptor = lookup_descriptor32;
-        }
-        megastructure_information->image_lookup_descriptors[import_index] = realloc(megastructure_information->image_lookup_descriptors[import_index], (count + 1) * sizeof(uint32_t));
-        uint32_t rva = lookup_descriptor & ((uint32_t) (1 << 31) - 1);
-        if (rva == 0 && (!megastructure_information->bits_64 || (uint32_t) (lookup_descriptor >> 31) == 0))
-        {
-            megastructure_information->image_lookup_descriptors[import_index][count] = (uint32_t)(-1);
-            megastructure_information->import_function_names[import_index] = calloc(count+1, sizeof(char*));
+        x = read_lookup_descriptor(pe_file, megastructure_information);
 
-            return true;
+        if(x == -1)
+        {
+            return false;
+        }
+        if(x == -2)
+        {
+            continue;
         }
 
-        megastructure_information->image_lookup_descriptors[import_index][count] = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, rva);
+        megastructure_information->image_lookup_descriptors[import_index] = (uint32_t*) realloc(megastructure_information->image_lookup_descriptors[import_index], (count + 1) * sizeof(uint32_t));
+        
+        megastructure_information->image_lookup_descriptors[import_index][count] = (uint32_t)x;
         count++;
-    }
+    } while(x != (uint32_t)(-1));
+
+    megastructure_information->import_function_names[import_index] = calloc(count, sizeof(char*));
+    return true;
 }
 
-static bool read_export_function_name_pointers(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_export_function_name_pointers(FILE* pe_file, PE_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->image_export.name, SEEK_SET);
     assert(is_seek_forward(ftell(pe_file)));
+
     if(fread(megastructure_information->export_module_function_pointers, sizeof(uint32_t), megastructure_information->image_export.name_count, pe_file) <= 0)
     {
         return false;
@@ -103,7 +96,7 @@ static bool read_export_function_name_pointers(FILE* pe_file, Megastructure_Info
 }
 
 
-static bool read_next_data(FILE* pe_file, Megastructure_Information* megastructure_information)
+static bool read_next_data(FILE* pe_file, PE_Information* megastructure_information)
 {
     while (true)
     {
@@ -268,13 +261,13 @@ NEXT_ITERATION:
     }
 }
 
-Megastructure_Information* read_pe(const char* filename)
+PE_Information* read_pe(const char* filename)
 {
-    Megastructure_Information* megastructure_information = NULL;
+    PE_Information* megastructure_information = NULL;
     PE_Optional_Header pe_optional_header;
     pe_optional_header.data_directory = NULL;
-    COFF_Header coff_header;
-    DOS_Header dos_header;
+    PE_COFF_Header coff_header;
+    PE_DOS_Header dos_header;
     FILE* pe_file = fopen(filename, "r");
     if (pe_file == NULL)
     {
@@ -331,11 +324,11 @@ Megastructure_Information* read_pe(const char* filename)
         goto ERROR;
     }
 
-    megastructure_information = (Megastructure_Information*) calloc(1, sizeof(Megastructure_Information));
+    megastructure_information = (PE_Information*) calloc(1, sizeof(PE_Information));
 
     if(fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file) <= 0
         || fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file) <= 0
-        || fread(megastructure_information->directory_addresses, sizeof(Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
+        || fread(megastructure_information->directory_addresses, sizeof(PE_Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
         goto ERROR;
@@ -343,17 +336,17 @@ Megastructure_Information* read_pe(const char* filename)
 
     if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
     {
-        fseek(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(Data_Directory), SEEK_CUR);
+        fseek(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory), SEEK_CUR);
         assert(is_seek_forward(ftell(pe_file)));
     }
 
-    megastructure_information->section_headers = malloc(coff_header.section_count * sizeof(Section_Header));
+    megastructure_information->section_headers = malloc(coff_header.section_count * sizeof(PE_Section_Header));
     if (megastructure_information->section_headers == NULL)
     {
         fputs("An error has occurred\n", stderr);
         goto ERROR;
     }
-    if(fread(megastructure_information->section_headers, sizeof(Section_Header), coff_header.section_count, pe_file) <= 0)
+    if(fread(megastructure_information->section_headers, sizeof(PE_Section_Header), coff_header.section_count, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
         goto ERROR;
@@ -409,7 +402,7 @@ ERROR:
 }
 
 
-void free_megastructure(Megastructure_Information** pps)
+void free_megastructure(PE_Information** pps)
 {
     if(*pps == NULL)
     {
