@@ -122,22 +122,22 @@ int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_info
     {
         if(fread(&lookup_descriptor, sizeof(uint64_t), 1, pe_file) <= 0)
         {
-            return -1;
+            return READ_ERROR;
         }
         if (IS_64_ORDINAL_FUNC(lookup_descriptor))
         {
-            return -2;
+            return READ_IGNORE;
         }
     }
     else
     {
         if(fread(&lookup_descriptor32, sizeof(uint32_t), 1, pe_file) <= 0)
         {
-            return -1;
+            return READ_ERROR;
         }
         if (IS_32_ORDINAL_FUNC(lookup_descriptor32))
         {
-            return -2;
+            return READ_IGNORE;
         }
         lookup_descriptor = lookup_descriptor32;
     }

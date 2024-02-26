@@ -1,5 +1,10 @@
 #include "src/readpe_internal.h"
 
+enum SEARCH_RESPONSE {
+    SEARCH_ERROR = -1,
+    SEARCH_NOT_FOUND,
+    SEARCH_FOUND
+};
 
 static inline bool is_last_image_import_descriptor(PE_Image_Import_Descriptor* descriptor)
 {
@@ -59,11 +64,11 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
     {
         x = read_lookup_descriptor(pe_file, megastructure_information);
 
-        if(x == -1)
+        if(x == READ_ERROR)
         {
             return false;
         }
-        if(x == -2)
+        if(x == READ_IGNORE)
         {
             continue;
         }
@@ -96,7 +101,7 @@ static bool read_export_function_name_pointers(FILE* pe_file, PE_Information* me
 }
 
 
-static signed char search_addr_in_directory_addresses(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
+static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
 {
     for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
@@ -109,37 +114,37 @@ static signed char search_addr_in_directory_addresses(FILE* pe_file, PE_Informat
             case 0:
                 if(!read_export_directory(pe_file, megastructure_information))
                 {
-                    return -1;
+                    return SEARCH_ERROR;
                 }
                 megastructure_information->directory_addresses[i].address = 0;
                 break;
             case 1:
                 if(!read_import_table(pe_file, megastructure_information))
                 {
-                    return -1;
+                    return SEARCH_ERROR;
                 }
                 megastructure_information->directory_addresses[i].address = 0;
                 break;
             case 4:
                 if(!read_certificate(pe_file, megastructure_information))
                 {
-                    return -1;
+                    return SEARCH_ERROR;
                 }
                 megastructure_information->directory_addresses[i].address = 0;
                 break;
             default:
-                return -1;  // this is not supposed to happend
+                return SEARCH_ERROR;  // this is not supposed to happend
         }
-        return 1;
+        return SEARCH_FOUND;
     }
-    return 0;
+    return SEARCH_NOT_FOUND;
 }
 
-static signed char search_addr_in_lookup_descriptors(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address, uint16_t index)
+static enum SEARCH_RESPONSE search_addr_in_lookup_descriptors(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address, uint16_t index)
 {
     if (megastructure_information->image_lookup_descriptors[index] == NULL)
     {
-        return 0;
+        return SEARCH_NOT_FOUND;
     }
     
     for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[index][j] != (uint32_t) -1; j++)
@@ -148,59 +153,59 @@ static signed char search_addr_in_lookup_descriptors(FILE* pe_file, PE_Informati
         {
             if(!read_import_function_name(pe_file, megastructure_information, index, j))
             {
-                return -1;
+                return SEARCH_ERROR;
             }
             megastructure_information->image_lookup_descriptors[index][j] = 0;
-            return 1;
+            return SEARCH_FOUND;
         }
     }
-    return 0;
+    return SEARCH_NOT_FOUND;
 }
 
-static signed char search_addr_in_image_imports(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
+static enum SEARCH_RESPONSE search_addr_in_image_imports(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
 {
     if (megastructure_information->image_imports == NULL)
     {
-        return 0;
+        return SEARCH_NOT_FOUND;
     }
     for (uint16_t i = 0; i < megastructure_information->image_import_count; i++)
     {
-        signed char x;
+        enum SEARCH_RESPONSE x;
 
         if (megastructure_information->image_imports[i].something.original_first_thunk == min_address)
         {
             if(!read_import_lookup_descriptors(pe_file, megastructure_information, i))
             {
-                return -1;
+                return SEARCH_ERROR;
             }
             megastructure_information->image_imports[i].something.original_first_thunk = 0;
-            return 1;
+            return SEARCH_FOUND;
         }
         if (megastructure_information->image_imports[i].name == min_address)
         {
             if(!read_import_dll_name(pe_file, megastructure_information, i))
             {
-                return -1;
+                return SEARCH_ERROR;
             }
             megastructure_information->image_imports[i].name = 0;
-            return 1;
+            return SEARCH_FOUND;
         }
 
         x = search_addr_in_lookup_descriptors(pe_file, megastructure_information, min_address, i);
-        if(x != 0)
+        if(x != SEARCH_NOT_FOUND)
         {
             return x;
         }
     }
 
-    return 0;
+    return SEARCH_NOT_FOUND;
 }
 
-static signed char search_addr_in_export_module(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
+static enum SEARCH_RESPONSE search_addr_in_export_module(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
 {
     if (megastructure_information->export_module_function_pointers == NULL)
     {
-        return 0;
+        return SEARCH_NOT_FOUND;
     }
 
     for (uint32_t i = 0; i < megastructure_information->image_export.name_count; i++)
@@ -209,14 +214,14 @@ static signed char search_addr_in_export_module(FILE* pe_file, PE_Information* m
         {
             if(!read_export_function_name(pe_file, megastructure_information, i))
             {
-                return -1;
+                return SEARCH_ERROR;
             }
             megastructure_information->export_module_function_pointers[i] = 0;
-            return 1;
+            return SEARCH_FOUND;
         }
     }
 
-    return 0;
+    return SEARCH_NOT_FOUND;
 }
 
 static bool read_next_data(FILE* pe_file, PE_Information* megastructure_information)
@@ -224,24 +229,24 @@ static bool read_next_data(FILE* pe_file, PE_Information* megastructure_informat
     uint64_t min_address;
     while ((min_address = get_min_addr(megastructure_information)) != (uint64_t)(-1))
     {
-        signed char x;
+        enum SEARCH_RESPONSE x;
         
         x = search_addr_in_directory_addresses(pe_file, megastructure_information, min_address);
-        if(x == 1)
+        if(x == SEARCH_FOUND)
         {
             continue;
         }
-        if(x == -1)
+        if(x == SEARCH_ERROR)
         {
             return false;
         }
 
         x = search_addr_in_image_imports(pe_file, megastructure_information, min_address);
-        if(x == 1)
+        if(x == SEARCH_FOUND)
         {
             continue;
         }
-        if(x == -1)
+        if(x == SEARCH_ERROR)
         {
             return false;
         }
@@ -266,11 +271,11 @@ static bool read_next_data(FILE* pe_file, PE_Information* megastructure_informat
         }
 
         x = search_addr_in_export_module(pe_file, megastructure_information, min_address);
-        if(x == 1)
+        if(x == SEARCH_FOUND)
         {
             continue;
         }
-        if(x == -1)
+        if(x == SEARCH_ERROR)
         {
             return false;
         }
