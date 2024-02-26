@@ -1,3 +1,6 @@
+#ifndef READPE_H
+#define READPE_H
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -136,3 +139,5 @@ typedef struct _pe_information {
 
 PE_Information* read_pe(const char* filename);
 void free_megastructure(PE_Information** pps);
+
+#endif

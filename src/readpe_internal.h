@@ -1,3 +1,6 @@
+#ifndef READPE_INTERNAL_H
+#define READPE_INTERNAL_H
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -43,6 +46,7 @@ enum IMAGE_DIRECTORY_ENTRY {
 
 bool is_seek_forward(uint32_t seek_addr);
 uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_headers, uint32_t rva);
+uint64_t get_min_addr(PE_Information* megastructure_information);
 
 bool read_dos_header(FILE* pe_file, PE_DOS_Header* dos_header);
 bool read_coff_header(FILE* pe_file, PE_COFF_Header* coff_header);
@@ -70,3 +74,5 @@ static inline bool read_export_function_name(FILE* pe_file, PE_Information* mega
 {
     return read_single_name(pe_file, megastructure_information->export_module_function_pointers[name_index], &(megastructure_information->export_module_functions[name_index]));
 }
+
+#endif
