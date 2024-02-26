@@ -33,7 +33,11 @@ bool read_coff_header(FILE* pe_file, PE_COFF_Header* coff_header)
 bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->directory_addresses[4].address, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
     uint16_t version;
     uint16_t type;
     if(fread(&(megastructure_information->signature_length), sizeof(uint32_t), 1, pe_file) <= 0)
@@ -71,11 +75,18 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
 
 bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
 {
-    fseek(pe_file, seek_pos, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
     int character_count = 0;
-    *name_addr = malloc(MAX_NAME_SIZE+1);
     int c;
+
+    fseek(pe_file, seek_pos, SEEK_SET);
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
+
+    *name_addr = malloc(MAX_NAME_SIZE+1);
+    
     do
     {
         if((c = fgetc(pe_file)) == EOF)
@@ -96,7 +107,12 @@ bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
 bool read_export_directory(FILE* pe_file, PE_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->directory_addresses[0].address, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
+
     if(fread(&(megastructure_information->image_export), sizeof(PE_Image_Export_Directory), 1, pe_file) <= 0)
     {
         return false;

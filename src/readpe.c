@@ -16,7 +16,11 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
     bool last_import_desc = false;
 
     fseek(pe_file, megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
 
     megastructure_information->image_imports = NULL;
     while (!last_import_desc)
@@ -55,7 +59,11 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
     fseek(pe_file, megastructure_information->image_imports[import_index].something.original_first_thunk, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
 
     int64_t x;
     int count = 0;
@@ -86,7 +94,11 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
 static bool read_export_function_name_pointers(FILE* pe_file, PE_Information* megastructure_information)
 {
     fseek(pe_file, megastructure_information->image_export.name, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
 
     if(fread(megastructure_information->export_module_function_pointers, sizeof(uint32_t), megastructure_information->image_export.name_count, pe_file) <= 0)
     {
@@ -224,7 +236,7 @@ static enum SEARCH_RESPONSE search_addr_in_export_module(FILE* pe_file, PE_Infor
     return SEARCH_NOT_FOUND;
 }
 
-static bool read_next_data(FILE* pe_file, PE_Information* megastructure_information)
+static bool read_all_data(FILE* pe_file, PE_Information* megastructure_information)
 {
     uint64_t min_address;
     while ((min_address = get_min_addr(megastructure_information)) != (uint64_t)(-1))
@@ -307,7 +319,11 @@ PE_Information* read_pe(const char* filename)
         goto ERROR;
     }
     fseek(pe_file, dos_header.lfa_new, SEEK_SET);
-    assert(is_seek_forward(ftell(pe_file)));
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
     if (!read_coff_header(pe_file, &coff_header))
     {
         fputs("Error: invalid COFF header\n", stderr);
@@ -364,7 +380,11 @@ PE_Information* read_pe(const char* filename)
     if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
     {
         fseek(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory), SEEK_CUR);
-        assert(is_seek_forward(ftell(pe_file)));
+        if(!is_seek_forward(ftell(pe_file)))
+        {
+            fprintf(stderr, "seek back forbidden !\n");
+            return false;
+        }
     }
 
     megastructure_information->section_headers = malloc(coff_header.section_count * sizeof(PE_Section_Header));
@@ -397,7 +417,7 @@ PE_Information* read_pe(const char* filename)
 
     megastructure_information->bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
 
-    if(!read_next_data(pe_file, megastructure_information))
+    if(!read_all_data(pe_file, megastructure_information))
     {
         fputs("Error: file corrupted\n", stderr);
         goto ERROR;
