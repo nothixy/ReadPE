@@ -77,7 +77,7 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
         
         megastructure_information->image_lookup_descriptors[import_index][count] = (uint32_t)x;
         count++;
-    } while(x != (uint32_t)(-1));
+    } while(x != LOOKUP_DESCRIPTOR_END);
 
     megastructure_information->import_function_names[import_index] = calloc(count, sizeof(char*));
     return true;
@@ -111,26 +111,26 @@ static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE
         }
         switch (i)
         {
-            case 0:
+            case IMAGE_DIRECTORY_ENTRY_EXPORT:
                 if(!read_export_directory(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[i].address = 0;
+                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_EXPORT].address = 0;
                 break;
-            case 1:
+            case IMAGE_DIRECTORY_ENTRY_IMPORT:
                 if(!read_import_table(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[i].address = 0;
+                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address = 0;
                 break;
-            case 4:
+            case IMAGE_DIRECTORY_ENTRY_SECURITY:
                 if(!read_certificate(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[i].address = 0;
+                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_SECURITY].address = 0;
                 break;
             default:
                 return SEARCH_ERROR;  // this is not supposed to happend
@@ -147,7 +147,7 @@ static enum SEARCH_RESPONSE search_addr_in_lookup_descriptors(FILE* pe_file, PE_
         return SEARCH_NOT_FOUND;
     }
     
-    for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[index][j] != (uint32_t) -1; j++)
+    for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[index][j] != LOOKUP_DESCRIPTOR_END; j++)
     {
         if (megastructure_information->image_lookup_descriptors[index][j] == min_address)
         {
@@ -279,10 +279,14 @@ static bool read_next_data(FILE* pe_file, PE_Information* megastructure_informat
         {
             return false;
         }
+
+        return false;  // addr not found, file corrupted
     }
 
     return true;
 }
+
+
 
 PE_Information* read_pe(const char* filename)
 {
@@ -379,13 +383,13 @@ PE_Information* read_pe(const char* filename)
 
     for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
-        if (i != 4)
+        if (i != IMAGE_DIRECTORY_ENTRY_SECURITY)  // because security is an absolute addr
         {
             megastructure_information->directory_addresses[i].address = find_offset_from_rva(coff_header.section_count, megastructure_information->section_headers, megastructure_information->directory_addresses[i].address);
         }
 
         // Temporary because I can't parse other information
-        if (i != 0 && i != 1 && i != 4)
+        if (i != IMAGE_DIRECTORY_ENTRY_EXPORT && i != IMAGE_DIRECTORY_ENTRY_IMPORT && i != IMAGE_DIRECTORY_ENTRY_SECURITY)
         {
             megastructure_information->directory_addresses[i].address = 0;
         }

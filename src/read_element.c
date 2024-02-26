@@ -145,7 +145,7 @@ int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_info
     uint32_t rva = lookup_descriptor & ((uint32_t) (1 << 31) - 1);
     if (rva == 0 && (!megastructure_information->bits_64 || (uint32_t) (lookup_descriptor >> 31) == 0))
     {
-        return (uint32_t)(-1);
+        return LOOKUP_DESCRIPTOR_END;
     }
 
     return find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, rva);

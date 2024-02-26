@@ -24,6 +24,63 @@ uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_head
     return 0;
 }
 
+static uint64_t get_min_addr_image_lookup(PE_Information* megastructure_information, uint64_t min_address, uint16_t index)
+{
+    if (megastructure_information->image_lookup_descriptors[index] == NULL)
+    {
+        return min_address;
+    }
+    for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[index][j] != LOOKUP_DESCRIPTOR_END; j++)
+    {
+        if (megastructure_information->image_lookup_descriptors[index][j] != 0 && megastructure_information->image_lookup_descriptors[index][j] < min_address)
+        {
+            min_address = megastructure_information->image_lookup_descriptors[index][j];
+        }
+    }
+
+    return min_address;
+}
+
+
+static uint64_t get_min_addr_image_import(PE_Information* megastructure_information, uint64_t min_address)
+{
+    if (megastructure_information->image_imports == NULL)
+    {
+        return min_address;
+    }
+    for (uint16_t i = 0; i < megastructure_information->image_import_count; i++)
+    {
+        if (megastructure_information->image_imports[i].something.original_first_thunk != 0 && megastructure_information->image_imports[i].something.original_first_thunk < min_address)
+        {
+            min_address = megastructure_information->image_imports[i].something.original_first_thunk;
+        }
+        if (megastructure_information->image_imports[i].name != 0 && megastructure_information->image_imports[i].name < min_address)
+        {
+            min_address = megastructure_information->image_imports[i].name;
+        }
+
+        min_address = get_min_addr_image_lookup(megastructure_information, min_address, i);
+    }
+
+    return min_address;
+}
+
+static uint64_t get_min_addr_export_module(PE_Information* megastructure_information, uint64_t min_address)
+{
+    if (megastructure_information->export_module_function_pointers == NULL)
+    {
+        return min_address;
+    }
+    for (uint32_t i = 0; i < megastructure_information->image_export.name_count; i++)
+    {
+        if (megastructure_information->export_module_function_pointers[i] != 0 && megastructure_information->export_module_function_pointers[i] < min_address)
+        {
+            megastructure_information->export_module_function_pointers[i] = min_address;
+        }
+    }
+
+    return min_address;
+}
 
 uint64_t get_min_addr(PE_Information* megastructure_information)
 {
@@ -35,30 +92,7 @@ uint64_t get_min_addr(PE_Information* megastructure_information)
             min_address = megastructure_information->directory_addresses[i].address;
         }
     }
-    if (megastructure_information->image_imports != NULL)
-    {
-        for (int i = 0; i < megastructure_information->image_import_count; i++)
-        {
-            if (megastructure_information->image_imports[i].something.original_first_thunk != 0 && megastructure_information->image_imports[i].something.original_first_thunk < min_address)
-            {
-                min_address = megastructure_information->image_imports[i].something.original_first_thunk;
-            }
-            if (megastructure_information->image_imports[i].name != 0 && megastructure_information->image_imports[i].name < min_address)
-            {
-                min_address = megastructure_information->image_imports[i].name;
-            }
-            if (megastructure_information->image_lookup_descriptors[i] != NULL)
-            {
-                for (uint32_t j = 0; megastructure_information->image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
-                {
-                    if (megastructure_information->image_lookup_descriptors[i][j] != 0 && megastructure_information->image_lookup_descriptors[i][j] < min_address)
-                    {
-                        min_address = megastructure_information->image_lookup_descriptors[i][j];
-                    }
-                }
-            }
-        }
-    }
+    
     if (megastructure_information->image_export.name != 0 && megastructure_information->image_export.name < min_address)
     {
         min_address = megastructure_information->image_export.name;
@@ -67,16 +101,10 @@ uint64_t get_min_addr(PE_Information* megastructure_information)
     {
         min_address = megastructure_information->image_export.name_pointer;
     }
-    if (megastructure_information->export_module_function_pointers != NULL)
-    {
-        for (uint32_t i = 0; i < megastructure_information->image_export.name_count; i++)
-        {
-            if (megastructure_information->export_module_function_pointers[i] != 0 && megastructure_information->export_module_function_pointers[i] < min_address)
-            {
-                megastructure_information->export_module_function_pointers[i] = min_address;
-            }
-        }
-    }
+
+    min_address = get_min_addr_export_module(megastructure_information, min_address);
+
+    min_address = get_min_addr_image_import(megastructure_information, min_address);
 
     return min_address;
 }
