@@ -126,13 +126,14 @@ typedef struct _pe_information {
     PE_Image_Import_Descriptor* image_imports;
     uint32_t** image_lookup_descriptors;
     uint32_t* export_module_function_pointers;
-    uint8_t* signature;
+    uint32_t* signature_length;
+    uint8_t** signature;
     char*** import_function_names;
     char** export_module_functions;
     char** import_dll_names;
     uint32_t* import_function_allocated_per_dll;
     char* export_module_name;
-    uint32_t signature_length;
+    uint32_t signature_count;
     uint16_t image_import_count;
     uint16_t section_count;
     bool bits_64;

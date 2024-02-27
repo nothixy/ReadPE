@@ -38,38 +38,54 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
         fprintf(stderr, "seek back forbidden !\n");
         return false;
     }
-    uint16_t version;
-    uint16_t type;
-    if(fread(&(megastructure_information->signature_length), sizeof(uint32_t), 1, pe_file) <= 0)
+    uint32_t filepos;
+    do
     {
-        return false;
-    }
-    if(fread(&version, sizeof(uint16_t), 1, pe_file) <= 0)
-    {
-        return false;
-    }
-    if(fread(&type, sizeof(uint16_t), 1, pe_file) <= 0)
-    {
-        return false;
-    }
-    if (version != CERTIFICATE_VERSION)
-    {
-        megastructure_information->signature_length = 0;
-        return true;  // no signature
-    }
-    if (type != CERTIFICATE_TYPE)
-    {
-        megastructure_information->signature_length = 0;
-        return true;  // no signature
-    }
-    if (megastructure_information->signature_length < 8)
-    {
-        return false;  // file corrupted
-    }
+        megastructure_information->signature_length = realloc(megastructure_information->signature_length, (megastructure_information->signature_count + 1) * sizeof(uint32_t));
+        megastructure_information->signature = realloc(megastructure_information->signature, (megastructure_information->signature_count + 1) * sizeof(uint8_t*));
+        uint16_t version;
+        uint16_t type;
+        if(fread(&(megastructure_information->signature_length[megastructure_information->signature_count]), sizeof(uint32_t), 1, pe_file) <= 0)
+        {
+            return false;
+        }
+        if(fread(&version, sizeof(uint16_t), 1, pe_file) <= 0)
+        {
+            return false;
+        }
+        if(fread(&type, sizeof(uint16_t), 1, pe_file) <= 0)
+        {
+            return false;
+        }
+        if (version != CERTIFICATE_VERSION)
+        {
+            megastructure_information->signature_length[megastructure_information->signature_count] = 0;
+            return true;  // no signature
+        }
+        if (type != CERTIFICATE_TYPE)
+        {
+            megastructure_information->signature_length[megastructure_information->signature_count] = 0;
+            return true;  // no signature
+        }
+        if (megastructure_information->signature_length[megastructure_information->signature_count] < 8)
+        {
+            return false;  // file corrupted
+        }
 
-    megastructure_information->signature_length -= 8;
-    megastructure_information->signature = malloc(megastructure_information->signature_length * sizeof(uint8_t));
-    return fread(megastructure_information->signature, megastructure_information->signature_length * sizeof(uint8_t), 1, pe_file) == 1;
+        megastructure_information->signature_length[megastructure_information->signature_count] -= (2 * sizeof(uint16_t) + sizeof(uint32_t));
+        megastructure_information->signature[megastructure_information->signature_count] = malloc(megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t));
+        if (fread(megastructure_information->signature[megastructure_information->signature_count], megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t), 1, pe_file) != 1)
+        {
+            return false;
+        }
+        megastructure_information->signature_count++;
+        filepos = (uint32_t) ftell(pe_file);
+        if (filepos % 8 != 0)
+        {
+            filepos += 8 - (filepos % 8);
+        }
+    } while (filepos < megastructure_information->directory_addresses[4].address + megastructure_information->directory_addresses[4].size);
+    return true;
 }
 
 

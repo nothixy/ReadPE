@@ -425,15 +425,21 @@ PE_Information* read_pe(const char* filename)
         goto ERROR;
     }
 
-    FILE* cert = fopen("certificate.der", "wb");
-    if (cert != NULL)
+    char filepath[50] = "certificate";
+    for (uint32_t i = 0; i < megastructure_information->signature_count; i++)
     {
-        fwrite(megastructure_information->signature, sizeof(uint8_t), megastructure_information->signature_length, cert);
-        fclose(cert);
-    }
-    else
-    {
-        fputs("Can't write certificate file to certificate.der, ignoring\n", stderr);
+        snprintf(&filepath[11], 15, "%010u.der", i);
+
+        FILE* cert = fopen(filepath, "wb");
+        if (cert != NULL)
+        {
+            fwrite(megastructure_information->signature[i], sizeof(uint8_t), megastructure_information->signature_length[i], cert);
+            fclose(cert);
+        }
+        else
+        {
+            fputs("Can't write certificate file to certificate.der, ignoring\n", stderr);
+        }
     }
 
 
@@ -458,6 +464,11 @@ void free_megastructure(PE_Information** pps)
         return;
     }
 
+    for (uint32_t i = 0; i < (*pps)->signature_count; i++)
+    {
+        free((*pps)->signature[i]);
+    }
+    free((*pps)->signature_length);
     free((*pps)->signature);
     free((*pps)->section_headers);
     if ((*pps)->import_dll_names != NULL)
@@ -491,15 +502,19 @@ void free_megastructure(PE_Information** pps)
     }
     if ((*pps)->export_module_functions != NULL)
     {
-        for (uint32_t i = 0; i < (*pps)->image_export.function_count; i++)
+        for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
         {
             free((*pps)->export_module_functions[i]);
         }
     }
-    for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
-    {
-        free((*pps)->export_module_functions[i]);
-    }
+    // if ((*pps)->export_module_function_pointers != NULL)
+    // {
+    //     for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
+    //     {
+    //         free((*pps)->export_module_function_pointers[i]);
+    //     }
+    // }
+    free((*pps)->export_module_function_pointers);
     free((*pps)->export_module_functions);
     free((*pps)->export_module_name);
     free((*pps)->image_imports);
