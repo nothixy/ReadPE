@@ -428,6 +428,7 @@ PE_Information* read_pe(const char* filename)
     char filepath[50] = "certificate";
     for (uint32_t i = 0; i < megastructure_information->signature_count; i++)
     {
+        memset(&filepath[11], 0, 39);
         snprintf(&filepath[11], 15, "%010u.der", i);
 
         FILE* cert = fopen(filepath, "wb");
