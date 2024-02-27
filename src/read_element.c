@@ -67,7 +67,7 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
             megastructure_information->signature_length[megastructure_information->signature_count] = 0;
             return true;  // no signature
         }
-        if (megastructure_information->signature_length[megastructure_information->signature_count] < 8)
+        if (megastructure_information->signature_length[megastructure_information->signature_count] < (2 * sizeof(uint16_t) + sizeof(uint32_t)))
         {
             return false;  // file corrupted
         }

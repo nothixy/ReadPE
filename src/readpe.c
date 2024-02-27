@@ -1,5 +1,8 @@
 #include "src/readpe_internal.h"
 
+#define MAX_CERTIFICATE_NAME_SIZE 50
+#define CERTIFICATE_BASE_OUTPUT_NAME "certificate"
+
 enum SEARCH_RESPONSE {
     SEARCH_ERROR = -1,
     SEARCH_NOT_FOUND,
@@ -425,11 +428,11 @@ PE_Information* read_pe(const char* filename)
         goto ERROR;
     }
 
-    char filepath[50] = "certificate";
+    char filepath[MAX_CERTIFICATE_NAME_SIZE] = CERTIFICATE_BASE_OUTPUT_NAME;
     for (uint32_t i = 0; i < megastructure_information->signature_count; i++)
     {
-        memset(&filepath[11], 0, 39);
-        snprintf(&filepath[11], 15, "%010u.der", i);
+        memset(&filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], 0, MAX_CERTIFICATE_NAME_SIZE - sizeof(CERTIFICATE_BASE_OUTPUT_NAME) + 1);
+        sprintf(&filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], "%010u.der", i);
 
         FILE* cert = fopen(filepath, "wb");
         if (cert != NULL)
