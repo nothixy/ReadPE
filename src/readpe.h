@@ -119,11 +119,36 @@ typedef struct _pe_image_export_directory {
     uint32_t name_ordinals_pointer;
 } PE_Image_Export_Directory;
 
+typedef struct _pe_resource_directory_table {
+    uint32_t characteristics;
+    uint32_t timestamp;
+    uint16_t version_major;
+    uint16_t version_minor;
+    uint16_t named_entry_count;
+    uint16_t id_entry_count;
+} PE_Resource_Directory_Table;
+
+typedef struct _pe_resource_directory_entry {
+    uint32_t id_or_name_or_store_offset_type;
+    uint32_t offset;
+} PE_Resource_Directory_Entry;
+
+typedef struct _pe_resource_data_entry {
+    uint32_t data_rva;
+    uint32_t size;
+    uint32_t codepage;
+    uint32_t reserved;
+} PE_Resource_Data_Entry;
+
 typedef struct _pe_information {
     PE_Image_Export_Directory image_export;
     PE_Data_Directory directory_addresses[16];
     PE_Section_Header* section_headers;
     PE_Image_Import_Descriptor* image_imports;
+    uint8_t** resource_raw_data;
+    PE_Resource_Data_Entry* resource_information;
+    PE_Resource_Directory_Table* resource_tables;
+    PE_Resource_Directory_Entry** resource_entries;
     uint32_t** image_lookup_descriptors;
     uint32_t* export_module_function_pointers;
     uint32_t* signature_length;
@@ -134,6 +159,9 @@ typedef struct _pe_information {
     uint32_t* import_function_allocated_per_dll;
     char* export_module_name;
     uint32_t signature_count;
+    uint32_t resource_count;
+    uint32_t resource_table_count;
+    uint32_t rsrc_base;
     uint16_t image_import_count;
     uint16_t section_count;
     bool bits_64;

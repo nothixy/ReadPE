@@ -82,6 +82,34 @@ static uint64_t get_min_addr_export_module(PE_Information* megastructure_informa
     return min_address;
 }
 
+static uint64_t get_min_addr_resource_entry(PE_Information* megastructure_information, uint64_t min_address)
+{
+    uint32_t rsrc_address = megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
+    if (rsrc_address != 0 && rsrc_address < min_address)
+    {
+        min_address = rsrc_address;
+    }
+    for (uint32_t i = 0; i < megastructure_information->resource_table_count; i++)
+    {
+        uint32_t current_table_entry_count = megastructure_information->resource_tables[i].id_entry_count + megastructure_information->resource_tables[i].named_entry_count;
+        for (uint32_t j = 0; j < current_table_entry_count; j++)
+        {
+            if (megastructure_information->resource_entries[i][j].offset != 0 && megastructure_information->resource_entries[i][j].offset < min_address)
+            {
+                min_address = megastructure_information->resource_entries[i][j].offset;
+            }
+        }
+    }
+    for (uint32_t i = 0; i < megastructure_information->resource_count; i++)
+    {
+        if (megastructure_information->resource_information[i].data_rva != 0 && megastructure_information->resource_information[i].data_rva < min_address)
+        {
+            min_address = megastructure_information->resource_information[i].data_rva;
+        }
+    }
+    return min_address;
+}
+
 uint64_t get_min_addr(PE_Information* megastructure_information)
 {
     uint64_t min_address = (uint64_t) -1;
@@ -105,6 +133,8 @@ uint64_t get_min_addr(PE_Information* megastructure_information)
     min_address = get_min_addr_export_module(megastructure_information, min_address);
 
     min_address = get_min_addr_image_import(megastructure_information, min_address);
+
+    min_address = get_min_addr_resource_entry(megastructure_information, min_address);
 
     return min_address;
 }

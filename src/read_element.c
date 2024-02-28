@@ -182,3 +182,66 @@ int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_info
 
     return find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, rva);
 }
+
+
+bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_information, uint32_t index)
+{
+    fseek(pe_file, megastructure_information->resource_information[index].data_rva, SEEK_SET);
+    if (!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
+    megastructure_information->resource_raw_data[index] = calloc(megastructure_information->resource_information[index].size, sizeof(uint8_t));
+    return fread(megastructure_information->resource_raw_data[index], megastructure_information->resource_information[index].size * sizeof(uint8_t), 1, pe_file) == 1;
+}
+
+
+bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_information, uint32_t data_entry_address)
+{
+    fseek(pe_file, data_entry_address, SEEK_SET);
+    if (!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
+    megastructure_information->resource_information = realloc(megastructure_information->resource_information, (megastructure_information->resource_count + 1) * sizeof(PE_Resource_Data_Entry));
+    megastructure_information->resource_raw_data = realloc(megastructure_information->resource_raw_data, (megastructure_information->resource_count + 1) * sizeof(uint8_t*));
+    if (fread(&megastructure_information->resource_information[megastructure_information->resource_count], sizeof(PE_Resource_Data_Entry), 1, pe_file) <= 0)
+    {
+        return false;
+    }
+    megastructure_information->resource_information[megastructure_information->resource_count].data_rva = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->resource_information[megastructure_information->resource_count].data_rva);
+    megastructure_information->resource_count++;
+    return true;
+}
+
+
+bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructure_information, uint32_t table_address)
+{
+    uint32_t first_bit_mask = (1 << 31);
+    fseek(pe_file, table_address, SEEK_SET);
+    if(!is_seek_forward(ftell(pe_file)))
+    {
+        fprintf(stderr, "seek back forbidden !\n");
+        return false;
+    }
+    megastructure_information->resource_tables = realloc(megastructure_information->resource_tables, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Table));
+    megastructure_information->resource_entries = realloc(megastructure_information->resource_entries, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Entry*));
+    fread(&megastructure_information->resource_tables[megastructure_information->resource_table_count], sizeof(PE_Resource_Directory_Table), 1, pe_file);
+    uint32_t entry_count = megastructure_information->resource_tables[megastructure_information->resource_table_count].id_entry_count + megastructure_information->resource_tables[megastructure_information->resource_table_count].named_entry_count;
+    megastructure_information->resource_entries[megastructure_information->resource_table_count] = calloc(entry_count, sizeof(PE_Resource_Directory_Entry));
+    for (uint32_t i = 0; i < entry_count; i++)
+    {
+        if (fread(&megastructure_information->resource_entries[megastructure_information->resource_table_count][i], sizeof(PE_Resource_Directory_Entry), 1, pe_file) <= 0)
+        {
+            return false;
+        }
+        uint32_t bit_on_if_offset_type_subdir = (megastructure_information->resource_entries[megastructure_information->resource_table_count][i].offset & first_bit_mask) ? 1 : 0;
+        megastructure_information->resource_entries[megastructure_information->resource_table_count][i].id_or_name_or_store_offset_type = bit_on_if_offset_type_subdir;
+        megastructure_information->resource_entries[megastructure_information->resource_table_count][i].offset &= (first_bit_mask - 1);
+        megastructure_information->resource_entries[megastructure_information->resource_table_count][i].offset += megastructure_information->rsrc_base;
+    }
+    megastructure_information->resource_table_count++;
+    return true;
+}

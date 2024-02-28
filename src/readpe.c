@@ -3,6 +3,9 @@
 #define MAX_CERTIFICATE_NAME_SIZE 50
 #define CERTIFICATE_BASE_OUTPUT_NAME "certificate"
 
+#define MAX_RESOURCE_NAME_SIZE 50
+#define RESOURCE_BASE_OUTPUT_NAME "resource"
+
 enum SEARCH_RESPONSE {
     SEARCH_ERROR = -1,
     SEARCH_NOT_FOUND,
@@ -241,12 +244,75 @@ static enum SEARCH_RESPONSE search_addr_in_export_module(FILE* pe_file, PE_Infor
     return SEARCH_NOT_FOUND;
 }
 
+static enum SEARCH_RESPONSE search_addr_in_resource_entry(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
+{
+    if (megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address == min_address)
+    {
+        if (!read_resource_table_and_entries(pe_file, megastructure_information, min_address))
+        {
+            return SEARCH_ERROR;
+        }
+        megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address = 0;
+        return SEARCH_FOUND;
+    }
+    for (uint32_t i = 0; i < megastructure_information->resource_table_count; i++)
+    {
+        uint32_t current_table_entry_count = megastructure_information->resource_tables[i].id_entry_count + megastructure_information->resource_tables[i].named_entry_count;
+        for (uint32_t j = 0; j < current_table_entry_count; j++)
+        {
+            if (megastructure_information->resource_entries[i][j].offset == min_address)
+            {
+                if (megastructure_information->resource_entries[i][j].id_or_name_or_store_offset_type != 0)
+                {
+                    if (!read_resource_table_and_entries(pe_file, megastructure_information, megastructure_information->resource_entries[i][j].offset))
+                    {
+                        return SEARCH_ERROR;
+                    }
+                }
+                else
+                {
+                    if (!read_resource_data_entry(pe_file, megastructure_information, megastructure_information->resource_entries[i][j].offset))
+                    {
+                        return SEARCH_ERROR;
+                    }
+                }
+                megastructure_information->resource_entries[i][j].offset = 0;
+                return SEARCH_FOUND;
+            }
+        }
+    }
+    for (uint32_t i = 0; i < megastructure_information->resource_count; i++)
+    {
+        if (megastructure_information->resource_information[i].data_rva == min_address)
+        {
+            if (!read_resource_by_index(pe_file, megastructure_information, i))
+            {
+                return SEARCH_ERROR;
+            }
+            megastructure_information->resource_information[i].data_rva = 0;
+            return SEARCH_FOUND;
+        }
+    }
+
+    return SEARCH_NOT_FOUND;
+}
+
 static bool read_all_data(FILE* pe_file, PE_Information* megastructure_information)
 {
     uint64_t min_address;
     while ((min_address = get_min_addr(megastructure_information)) != (uint64_t)(-1))
     {
         enum SEARCH_RESPONSE x;
+
+        x = search_addr_in_resource_entry(pe_file, megastructure_information, min_address);
+        if(x == SEARCH_FOUND)
+        {
+            continue;
+        }
+        if (x == SEARCH_ERROR)
+        {
+            return false;
+        }
         
         x = search_addr_in_directory_addresses(pe_file, megastructure_information, min_address);
         if(x == SEARCH_FOUND)
@@ -414,12 +480,13 @@ PE_Information* read_pe(const char* filename)
         }
 
         // Temporary because I can't parse other information
-        if (i != IMAGE_DIRECTORY_ENTRY_EXPORT && i != IMAGE_DIRECTORY_ENTRY_IMPORT && i != IMAGE_DIRECTORY_ENTRY_SECURITY)
+        if (i != IMAGE_DIRECTORY_ENTRY_EXPORT && i != IMAGE_DIRECTORY_ENTRY_IMPORT && i != IMAGE_DIRECTORY_ENTRY_SECURITY && i != IMAGE_DIRECTORY_ENTRY_RESOURCE)
         {
             megastructure_information->directory_addresses[i].address = 0;
         }
     }
 
+    megastructure_information->rsrc_base = megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
     megastructure_information->bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
 
     if(!read_all_data(pe_file, megastructure_information))
@@ -428,13 +495,31 @@ PE_Information* read_pe(const char* filename)
         goto ERROR;
     }
 
-    char filepath[MAX_CERTIFICATE_NAME_SIZE] = CERTIFICATE_BASE_OUTPUT_NAME;
+    char resource_filepath[MAX_RESOURCE_NAME_SIZE] = RESOURCE_BASE_OUTPUT_NAME;
+    for (uint32_t i = 0; i < megastructure_information->resource_count; i++)
+    {
+        memset(&resource_filepath[sizeof(RESOURCE_BASE_OUTPUT_NAME) - 1], 0, MAX_RESOURCE_NAME_SIZE - sizeof(RESOURCE_BASE_OUTPUT_NAME) + 1);
+        sprintf(&resource_filepath[sizeof(RESOURCE_BASE_OUTPUT_NAME) - 1], "%010u", i);
+
+        FILE* res = fopen(resource_filepath, "wb");
+        if (res != NULL)
+        {
+            fwrite(megastructure_information->resource_raw_data[i], sizeof(uint8_t), megastructure_information->resource_information[i].size, res);
+            fclose(res);
+        }
+        else
+        {
+            fprintf(stderr, "Can't write resource file to %s, ignoring\n", resource_filepath);
+        }
+    }
+
+    char certificate_filepath[MAX_CERTIFICATE_NAME_SIZE] = CERTIFICATE_BASE_OUTPUT_NAME;
     for (uint32_t i = 0; i < megastructure_information->signature_count; i++)
     {
-        memset(&filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], 0, MAX_CERTIFICATE_NAME_SIZE - sizeof(CERTIFICATE_BASE_OUTPUT_NAME) + 1);
-        sprintf(&filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], "%010u.der", i);
+        memset(&certificate_filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], 0, MAX_CERTIFICATE_NAME_SIZE - sizeof(CERTIFICATE_BASE_OUTPUT_NAME) + 1);
+        sprintf(&certificate_filepath[sizeof(CERTIFICATE_BASE_OUTPUT_NAME)-1], "%010u.der", i);
 
-        FILE* cert = fopen(filepath, "wb");
+        FILE* cert = fopen(certificate_filepath, "wb");
         if (cert != NULL)
         {
             fwrite(megastructure_information->signature[i], sizeof(uint8_t), megastructure_information->signature_length[i], cert);
@@ -442,7 +527,7 @@ PE_Information* read_pe(const char* filename)
         }
         else
         {
-            fputs("Can't write certificate file to certificate.der, ignoring\n", stderr);
+            fprintf(stderr, "Can't write certificate file to %s, ignoring\n", certificate_filepath);
         }
     }
 
@@ -511,13 +596,18 @@ void free_megastructure(PE_Information** pps)
             free((*pps)->export_module_functions[i]);
         }
     }
-    // if ((*pps)->export_module_function_pointers != NULL)
-    // {
-    //     for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
-    //     {
-    //         free((*pps)->export_module_function_pointers[i]);
-    //     }
-    // }
+    for (uint32_t i = 0; i < (*pps)->resource_table_count; i++)
+    {
+        free((*pps)->resource_entries[i]);
+    }
+    for (uint32_t i = 0; i < (*pps)->resource_count; i++)
+    {
+        free((*pps)->resource_raw_data[i]);
+    }
+    free((*pps)->resource_raw_data);
+    free((*pps)->resource_entries);
+    free((*pps)->resource_tables);
+    free((*pps)->resource_information);
     free((*pps)->export_module_function_pointers);
     free((*pps)->export_module_functions);
     free((*pps)->export_module_name);

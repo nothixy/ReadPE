@@ -59,6 +59,9 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information);
 bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr);
 bool read_export_directory(FILE* pe_file, PE_Information* megastructure_information);
 int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_information);
+bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructure_information, uint32_t table_address);
+bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_information, uint32_t data_entry_address);
+bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_information, uint32_t index);
 
 static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
