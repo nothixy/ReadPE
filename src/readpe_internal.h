@@ -70,7 +70,8 @@ static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastruc
 
 static inline bool read_import_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index, uint32_t function_name)
 {
-    return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_index][function_name] + 2, &(megastructure_information->import_function_names[import_index][function_name]));
+    uint32_t index = megastructure_information->import_function_count_per_dll[import_index]++;
+    return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_index][function_name] + 2, &(megastructure_information->import_function_names[import_index][index]));
 }
 
 static inline bool read_export_module_name(FILE* pe_file, PE_Information* megastructure_information)

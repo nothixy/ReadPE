@@ -15,16 +15,19 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    for (uint32_t i = 0; i < pe_information->image_import_count; i++)
+
+    PE_DLL dll;
+
+    for(uint16_t i = 0; pe_get_dll(pe_information, &dll, i); i++)
     {
-        printf("DLL = %s\n", pe_information->import_dll_names[i]);
-        if(pe_information->image_lookup_descriptors[i] == NULL)
+        printf("DLL = %s index = %d\n", dll.name, dll._index);
+        if(pe_information->import_function_names[dll._index] == NULL)
         {
             continue;
         }
-        for (uint32_t j = 0; pe_information->image_lookup_descriptors[i][j] != (uint32_t) -1; j++)
+        for (uint32_t j = 0; pe_information->import_function_names[dll._index][j] != NULL; j++)
         {
-            printf("Function = %s\n", pe_information->import_function_names[i][j]);
+            printf("Function = %s\n", pe_information->import_function_names[dll._index][j]);
         }
     }
 

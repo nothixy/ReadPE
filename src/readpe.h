@@ -157,6 +157,7 @@ typedef struct _pe_information {
     char** export_module_functions;
     char** import_dll_names;
     uint32_t* import_function_allocated_per_dll;
+    uint32_t* import_function_count_per_dll;
     char* export_module_name;
     uint32_t signature_count;
     uint32_t resource_count;
@@ -167,7 +168,15 @@ typedef struct _pe_information {
     bool bits_64;
 } PE_Information;
 
+
+typedef struct _pe_dll {
+    const char* name;
+    uint32_t _index;
+} PE_DLL;
+
 PE_Information* read_pe(const char* filename);
 void free_megastructure(PE_Information** pps);
+
+bool pe_get_dll(const PE_Information* pe_info, PE_DLL* dll, uint16_t dll_num);
 
 #endif

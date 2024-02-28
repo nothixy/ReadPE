@@ -58,6 +58,7 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
         megastructure_information->import_function_names = calloc(megastructure_information->image_import_count, sizeof(char**));
         megastructure_information->image_lookup_descriptors = calloc(megastructure_information->image_import_count, sizeof(uint32_t*));
         megastructure_information->import_function_allocated_per_dll = calloc(megastructure_information->image_import_count, sizeof(uint32_t));
+        megastructure_information->import_function_count_per_dll = calloc(megastructure_information->image_import_count, sizeof(uint32_t));
     }
     return true;
 }
@@ -616,6 +617,7 @@ void free_megastructure(PE_Information** pps)
     free((*pps)->import_function_names);
     free((*pps)->image_lookup_descriptors);
     free((*pps)->import_function_allocated_per_dll);
+    free((*pps)->import_function_count_per_dll);
 
     free(*pps);
     *pps = NULL;

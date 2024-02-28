@@ -235,6 +235,7 @@ bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructur
     {
         if (fread(&megastructure_information->resource_entries[megastructure_information->resource_table_count][i], sizeof(PE_Resource_Directory_Entry), 1, pe_file) <= 0)
         {
+            megastructure_information->resource_table_count++;
             return false;
         }
         uint32_t bit_on_if_offset_type_subdir = (megastructure_information->resource_entries[megastructure_information->resource_table_count][i].offset & first_bit_mask) ? 1 : 0;

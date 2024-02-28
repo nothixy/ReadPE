@@ -4,3 +4,4 @@ build
 certificate.der
 executables/*
 !executables/.gitkeep
+resource*
