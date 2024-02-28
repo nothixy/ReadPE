@@ -49,7 +49,7 @@ enum IMAGE_DIRECTORY_ENTRY {
 };
 
 
-bool is_seek_forward(uint32_t seek_addr);
+bool seek_forward(FILE* pe_file, uint32_t seek_addr);
 uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_headers, uint32_t rva);
 uint64_t get_min_addr(PE_Information* megastructure_information);
 
@@ -65,7 +65,8 @@ bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_informa
 
 static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
-    return read_single_name(pe_file, megastructure_information->image_imports[import_index].name, &(megastructure_information->import_dll_names[import_index]));
+    uint32_t index = megastructure_information->dll_number++;
+    return read_single_name(pe_file, megastructure_information->image_imports[import_index].name, &(megastructure_information->import_dll_names[index]));
 }
 
 static inline bool read_import_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index, uint32_t function_name)

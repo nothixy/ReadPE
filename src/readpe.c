@@ -21,8 +21,7 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 {
     bool last_import_desc = false;
 
-    fseek(pe_file, megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -66,8 +65,7 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 
 static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
 {
-    fseek(pe_file, megastructure_information->image_imports[import_index].something.original_first_thunk, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, megastructure_information->image_imports[import_index].something.original_first_thunk))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -102,8 +100,7 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
 
 static bool read_export_function_name_pointers(FILE* pe_file, PE_Information* megastructure_information)
 {
-    fseek(pe_file, megastructure_information->image_export.name, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, megastructure_information->image_export.name))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -392,8 +389,7 @@ PE_Information* read_pe(const char* filename)
         fputs("Error: invalid DOS header\n", stderr);
         goto ERROR;
     }
-    fseek(pe_file, dos_header.lfa_new, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, dos_header.lfa_new))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -453,8 +449,7 @@ PE_Information* read_pe(const char* filename)
 
     if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
     {
-        fseek(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory), SEEK_CUR);
-        if(!is_seek_forward(ftell(pe_file)))
+        if(!seek_forward(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory)))
         {
             fputs("Seek back forbidden !\n", stderr);
             return false;

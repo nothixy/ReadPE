@@ -164,6 +164,7 @@ typedef struct _pe_information {
     uint32_t resource_table_count;
     uint32_t rsrc_base;
     uint16_t image_import_count;
+    uint16_t dll_number;
     uint16_t section_count;
     bool bits_64;
 } PE_Information;

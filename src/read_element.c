@@ -32,8 +32,7 @@ bool read_coff_header(FILE* pe_file, PE_COFF_Header* coff_header)
 
 bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
 {
-    fseek(pe_file, megastructure_information->directory_addresses[4].address, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, megastructure_information->directory_addresses[4].address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -94,8 +93,7 @@ bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
     int character_count = 0;
     int c;
 
-    fseek(pe_file, seek_pos, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, seek_pos))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -122,8 +120,7 @@ bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
 
 bool read_export_directory(FILE* pe_file, PE_Information* megastructure_information)
 {
-    fseek(pe_file, megastructure_information->directory_addresses[0].address, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, megastructure_information->directory_addresses[0].address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -186,8 +183,7 @@ int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_info
 
 bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_information, uint32_t index)
 {
-    fseek(pe_file, megastructure_information->resource_information[index].data_rva, SEEK_SET);
-    if (!is_seek_forward(ftell(pe_file)))
+    if (!seek_forward(pe_file, megastructure_information->resource_information[index].data_rva))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -199,8 +195,7 @@ bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_informa
 
 bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_information, uint32_t data_entry_address)
 {
-    fseek(pe_file, data_entry_address, SEEK_SET);
-    if (!is_seek_forward(ftell(pe_file)))
+    if (!seek_forward(pe_file, data_entry_address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -220,8 +215,7 @@ bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_infor
 bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructure_information, uint32_t table_address)
 {
     uint32_t first_bit_mask = (1 << 31);
-    fseek(pe_file, table_address, SEEK_SET);
-    if(!is_seek_forward(ftell(pe_file)))
+    if(!seek_forward(pe_file, table_address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;

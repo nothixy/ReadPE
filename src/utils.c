@@ -1,13 +1,13 @@
 #include "src/readpe_internal.h"
 
-bool is_seek_forward(uint32_t seek_addr)
+bool seek_forward(FILE* pe_file, uint32_t seek_addr)
 {
-    static uint32_t max_seek_addr = 0;
-    if (seek_addr < max_seek_addr)
+    if (ftell(pe_file) > seek_addr)
     {
         return false;
     }
-    max_seek_addr = seek_addr;
+    
+    fseek(pe_file, seek_addr, SEEK_SET);
 
     return true;
 }
