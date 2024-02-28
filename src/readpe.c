@@ -452,7 +452,7 @@ PE_Information* read_pe(const char* filename)
         if(!seek_forward(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory)))
         {
             fputs("Seek back forbidden !\n", stderr);
-            return false;
+            goto ERROR;
         }
     }
 
