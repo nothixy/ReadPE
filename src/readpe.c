@@ -153,6 +153,8 @@ static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE
                 }
                 megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_SECURITY].address = 0;
                 break;
+            case IMAGE_DIRECTORY_ENTRY_RESOURCE:
+                return SEARCH_NOT_FOUND;
             default:
                 return SEARCH_ERROR;  // this is not supposed to happend
         }
@@ -304,16 +306,6 @@ static bool read_all_data(FILE* pe_file, PE_Information* megastructure_informati
     while ((min_address = get_min_addr(megastructure_information)) != (uint64_t)(-1))
     {
         enum SEARCH_RESPONSE x;
-
-        x = search_addr_in_resource_entry(pe_file, megastructure_information, min_address);
-        if(x == SEARCH_FOUND)
-        {
-            continue;
-        }
-        if (x == SEARCH_ERROR)
-        {
-            return false;
-        }
         
         x = search_addr_in_directory_addresses(pe_file, megastructure_information, min_address);
         if(x == SEARCH_FOUND)
@@ -360,6 +352,16 @@ static bool read_all_data(FILE* pe_file, PE_Information* megastructure_informati
             continue;
         }
         if(x == SEARCH_ERROR)
+        {
+            return false;
+        }
+
+        x = search_addr_in_resource_entry(pe_file, megastructure_information, min_address);
+        if(x == SEARCH_FOUND)
+        {
+            continue;
+        }
+        if (x == SEARCH_ERROR)
         {
             return false;
         }
