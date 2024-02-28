@@ -35,7 +35,7 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
     fseek(pe_file, megastructure_information->directory_addresses[4].address, SEEK_SET);
     if(!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
     uint32_t filepos;
@@ -97,7 +97,7 @@ bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
     fseek(pe_file, seek_pos, SEEK_SET);
     if(!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
 
@@ -125,7 +125,7 @@ bool read_export_directory(FILE* pe_file, PE_Information* megastructure_informat
     fseek(pe_file, megastructure_information->directory_addresses[0].address, SEEK_SET);
     if(!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
 
@@ -189,7 +189,7 @@ bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_informa
     fseek(pe_file, megastructure_information->resource_information[index].data_rva, SEEK_SET);
     if (!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
     megastructure_information->resource_raw_data[index] = calloc(megastructure_information->resource_information[index].size, sizeof(uint8_t));
@@ -202,7 +202,7 @@ bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_infor
     fseek(pe_file, data_entry_address, SEEK_SET);
     if (!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
     megastructure_information->resource_information = realloc(megastructure_information->resource_information, (megastructure_information->resource_count + 1) * sizeof(PE_Resource_Data_Entry));
@@ -223,7 +223,7 @@ bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructur
     fseek(pe_file, table_address, SEEK_SET);
     if(!is_seek_forward(ftell(pe_file)))
     {
-        fprintf(stderr, "seek back forbidden !\n");
+        fputs("Seek back forbidden !\n", stderr);
         return false;
     }
     megastructure_information->resource_tables = realloc(megastructure_information->resource_tables, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Table));
