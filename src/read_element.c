@@ -202,8 +202,10 @@ bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_infor
     }
     megastructure_information->resource_information = realloc(megastructure_information->resource_information, (megastructure_information->resource_count + 1) * sizeof(PE_Resource_Data_Entry));
     megastructure_information->resource_raw_data = realloc(megastructure_information->resource_raw_data, (megastructure_information->resource_count + 1) * sizeof(uint8_t*));
+    megastructure_information->resource_raw_data[megastructure_information->resource_count] = NULL;
     if (fread(&megastructure_information->resource_information[megastructure_information->resource_count], sizeof(PE_Resource_Data_Entry), 1, pe_file) <= 0)
     {
+        megastructure_information->resource_count++;
         return false;
     }
     megastructure_information->resource_information[megastructure_information->resource_count].data_rva = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->resource_information[megastructure_information->resource_count].data_rva);
