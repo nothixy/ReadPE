@@ -7,9 +7,7 @@ bool seek_forward(FILE* pe_file, uint32_t seek_addr)
         return false;
     }
     
-    fseek(pe_file, seek_addr, SEEK_SET);
-
-    return true;
+    return fseek(pe_file, seek_addr, SEEK_SET) == 0;
 }
 
 uint32_t find_offset_from_rva(int section_count, PE_Section_Header* section_headers, uint32_t rva)
