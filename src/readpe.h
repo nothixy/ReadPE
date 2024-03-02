@@ -140,6 +140,12 @@ typedef struct _pe_resource_data_entry {
     uint32_t reserved;
 } PE_Resource_Data_Entry;
 
+typedef struct _pe_dll {
+    char* name;
+    char** function_names;
+    uint32_t function_number;
+} PE_DLL;
+
 typedef struct _pe_information {
     PE_Image_Export_Directory image_export;
     PE_Data_Directory directory_addresses[16];
@@ -153,31 +159,23 @@ typedef struct _pe_information {
     uint32_t* export_module_function_pointers;
     uint32_t* signature_length;
     uint8_t** signature;
-    char*** import_function_names;
     char** export_module_functions;
-    char** import_dll_names;
-    uint32_t* import_function_allocated_per_dll;
-    uint32_t* import_function_count_per_dll;
     char* export_module_name;
+    PE_DLL* import_dll;
+    uint16_t dll_number;
     uint32_t signature_count;
     uint32_t resource_count;
     uint32_t resource_table_count;
     uint32_t rsrc_base;
     uint16_t image_import_count;
-    uint16_t dll_number;
     uint16_t section_count;
     bool bits_64;
 } PE_Information;
 
 
-typedef struct _pe_dll {
-    const char* name;
-    uint32_t _index;
-} PE_DLL;
 
 PE_Information* read_pe(const char* filename);
 void free_megastructure(PE_Information** pps);
 
-bool pe_get_dll(const PE_Information* pe_info, PE_DLL* dll, uint16_t dll_num);
 
 #endif

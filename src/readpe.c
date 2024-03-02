@@ -53,11 +53,8 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 
     if (megastructure_information->image_import_count != 0)
     {
-        megastructure_information->import_dll_names = calloc(megastructure_information->image_import_count, sizeof(char*));
-        megastructure_information->import_function_names = calloc(megastructure_information->image_import_count, sizeof(char**));
+        megastructure_information->import_dll = calloc(megastructure_information->image_import_count, sizeof(PE_DLL));
         megastructure_information->image_lookup_descriptors = calloc(megastructure_information->image_import_count, sizeof(uint32_t*));
-        megastructure_information->import_function_allocated_per_dll = calloc(megastructure_information->image_import_count, sizeof(uint32_t));
-        megastructure_information->import_function_count_per_dll = calloc(megastructure_information->image_import_count, sizeof(uint32_t));
     }
     return true;
 }
@@ -93,8 +90,7 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
         count++;
     } while(x != LOOKUP_DESCRIPTOR_END);
 
-    megastructure_information->import_function_names[import_index] = calloc(count, sizeof(char*));
-    megastructure_information->import_function_allocated_per_dll[import_index] = count;
+    megastructure_information->import_dll[import_index].function_names = calloc(count, sizeof(char*));
     return true;
 }
 
@@ -153,7 +149,7 @@ static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE
             case IMAGE_DIRECTORY_ENTRY_RESOURCE:
                 return SEARCH_NOT_FOUND;
             default:
-                return SEARCH_ERROR;  // this is not supposed to happend
+                return SEARCH_ERROR;  // this is not supposed to happened
         }
         return SEARCH_FOUND;
     }
@@ -543,6 +539,19 @@ ERROR:
     return NULL;
 }
 
+void free_dll_functions(PE_DLL* dll)
+{
+    if(dll == NULL || dll->function_names == NULL)
+    {
+        return;
+    }
+
+    for(uint32_t i = 0; i < dll->function_number; i++)
+    {
+        free(dll->function_names[i]);
+    }
+}
+
 
 void free_megastructure(PE_Information** pps)
 {
@@ -558,26 +567,11 @@ void free_megastructure(PE_Information** pps)
     free((*pps)->signature_length);
     free((*pps)->signature);
     free((*pps)->section_headers);
-    if ((*pps)->import_dll_names != NULL)
+    if ((*pps)->import_dll != NULL)
     {
         for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
         {
-            free((*pps)->import_dll_names[i]);
-        }
-    }
-    if ((*pps)->import_function_names != NULL)
-    {
-        for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
-        {
-            if((*pps)->import_function_names[i] == NULL)
-            {
-                continue;
-            }
-            for (uint32_t j = 0; j < (*pps)->import_function_allocated_per_dll[i]; j++)
-            {
-                free((*pps)->import_function_names[i][j]);
-            }
-            free((*pps)->import_function_names[i]);
+            free_dll_functions(&((*pps)->import_dll[i]));
         }
     }
     if ((*pps)->image_lookup_descriptors != NULL)
@@ -610,11 +604,8 @@ void free_megastructure(PE_Information** pps)
     free((*pps)->export_module_functions);
     free((*pps)->export_module_name);
     free((*pps)->image_imports);
-    free((*pps)->import_dll_names);
-    free((*pps)->import_function_names);
+    free((*pps)->import_dll);
     free((*pps)->image_lookup_descriptors);
-    free((*pps)->import_function_allocated_per_dll);
-    free((*pps)->import_function_count_per_dll);
 
     free(*pps);
     *pps = NULL;

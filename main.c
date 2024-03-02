@@ -16,18 +16,20 @@ int main(int argc, char* argv[])
     }
 
 
-    PE_DLL dll;
 
-    for(uint16_t i = 0; pe_get_dll(pe_information, &dll, i); i++)
+    if (pe_information->import_dll != NULL)
     {
-        printf("DLL = %s index = %d\n", dll.name, dll._index);
-        if(pe_information->import_function_names[dll._index] == NULL)
+        for(uint16_t i = 0; i < pe_information->dll_number; i++)
         {
-            continue;
-        }
-        for (uint32_t j = 0; pe_information->import_function_names[dll._index][j] != NULL; j++)
-        {
-            printf("Function = %s\n", pe_information->import_function_names[dll._index][j]);
+            printf("DLL = %s\n", pe_information->import_dll[i].name);
+            if(pe_information->import_dll[i].function_names == NULL)
+            {
+                continue;
+            }
+            for (uint32_t j = 0; j < pe_information->import_dll[i].function_number; j++)
+            {
+                printf("Function = %s\n", pe_information->import_dll[i].function_names[j]);
+            }
         }
     }
 
