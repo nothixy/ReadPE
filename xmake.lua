@@ -13,7 +13,6 @@ rule("flags_extras")
     if is_mode("debug") then
         on_config(function(target)
             target:add("defines", "DEBUG")
-            target:add("defines", "FUZZER_COMPLIANT")
         end)
     end
 
@@ -34,6 +33,7 @@ target("readpe_fuzzer")
     set_toolchains("clang")
     add_files("fuzzer.c")
     add_files("src/*.c")
+    add_defines("FUZZER_COMPLIANT")
     add_includedirs("./", {public = true})
     add_rules("flags_extras")
     add_cxflags("-fsanitize=fuzzer,address", "-static-libsan")
