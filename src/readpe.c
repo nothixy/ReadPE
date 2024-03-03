@@ -366,70 +366,82 @@ static bool read_all_data(FILE* pe_file, PE_Information* megastructure_informati
 }
 
 
-
-PE_Information* read_pe(const char* filename)
+static bool check_pe_headers(FILE* pe_file, PE_Optional_Header* pe_optional_header, PE_COFF_Header* coff_header)
 {
-    PE_Information* megastructure_information = NULL;
-    PE_Optional_Header pe_optional_header;
-    pe_optional_header.data_directory = NULL;
-    PE_COFF_Header coff_header;
     PE_DOS_Header dos_header;
-    FILE* pe_file = fopen(filename, "r");
-    if (pe_file == NULL)
-    {
-        fputs("Error: can't open file\n", stderr);
-        goto ERROR;
-    }
+    
     if (!read_dos_header(pe_file, &dos_header))
     {
         fputs("Error: invalid DOS header\n", stderr);
-        goto ERROR;
+        return false;
     }
     if(!seek_forward(pe_file, dos_header.lfa_new))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
     }
-    if (!read_coff_header(pe_file, &coff_header))
+    if (!read_coff_header(pe_file, coff_header))
     {
         fputs("Error: invalid COFF header\n", stderr);
-        goto ERROR;
+        return false;
     }
-    if (coff_header.optional_header_size == 0)
+    if (coff_header->optional_header_size == 0)
     {
         fputs("Error: this file doesn't have an optional header, I don't know how to proceed\n", stderr);
-        goto ERROR;
+        return false;
     }
-    if(fread(&pe_optional_header, offsetof(PE_Optional_Header, stack_reserved_size), 1, pe_file) <= 0)
+    if(fread(pe_optional_header, offsetof(PE_Optional_Header, stack_reserved_size), 1, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
-        goto ERROR;
+        return false;
     }
-    if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64)
+    if (pe_optional_header->signature == PE_OPTIONAL_HEADER_SIGNATURE_64)
     {
-        if(fread(&(pe_optional_header.stack_reserved_size), sizeof(uint64_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.stack_commit_size), sizeof(uint64_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.heap_reserve_size), sizeof(uint64_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.heap_commit_size), sizeof(uint64_t), 1, pe_file) <= 0)
+        if(fread(&(pe_optional_header->stack_reserved_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->stack_commit_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->heap_reserve_size), sizeof(uint64_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->heap_commit_size), sizeof(uint64_t), 1, pe_file) <= 0)
         {
             fputs("Error: file corrupted\n", stderr);
-            goto ERROR;
+            return false;
         }
     }
-    else if (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_32)
+    else if (pe_optional_header->signature == PE_OPTIONAL_HEADER_SIGNATURE_32)
     {
-        if(fread(&(pe_optional_header.stack_reserved_size), sizeof(uint32_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.stack_commit_size), sizeof(uint32_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.heap_reserve_size), sizeof(uint32_t), 1, pe_file) <= 0
-            || fread(&(pe_optional_header.heap_commit_size), sizeof(uint32_t), 1, pe_file) <= 0)
+        if(fread(&(pe_optional_header->stack_reserved_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->stack_commit_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->heap_reserve_size), sizeof(uint32_t), 1, pe_file) <= 0
+            || fread(&(pe_optional_header->heap_commit_size), sizeof(uint32_t), 1, pe_file) <= 0)
         {
             fputs("Error: file corrupted\n", stderr);
-            goto ERROR;
+            return false;
         }
     }
     else
     {
         fputs("Error: this tool only supports PE executable files\n", stderr);
+        return false;
+    }
+
+    return true;
+}
+
+
+PE_Information* read_pe(const char* filename)
+{
+    PE_Information* megastructure_information = NULL;
+    PE_Optional_Header pe_optional_header = {.data_directory = NULL};
+    PE_COFF_Header coff_header;
+    
+    FILE* pe_file = fopen(filename, "r");
+    if (pe_file == NULL)
+    {
+        fputs("Error: can't open file\n", stderr);
+        goto ERROR;
+    }
+    
+    if(!check_pe_headers(pe_file, &pe_optional_header, &coff_header))
+    {
         goto ERROR;
     }
 

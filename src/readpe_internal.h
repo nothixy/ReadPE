@@ -63,16 +63,16 @@ bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructur
 bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_information, uint32_t data_entry_address);
 bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_information, uint32_t index);
 
-static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index)
+static inline bool read_import_dll_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_dll_index)
 {
     uint32_t index = megastructure_information->dll_number++;
-    return read_single_name(pe_file, megastructure_information->image_imports[import_index].name, &(megastructure_information->import_dll[index].name));
+    return read_single_name(pe_file, megastructure_information->image_imports[import_dll_index].name, &(megastructure_information->import_dll[index].name));
 }
 
-static inline bool read_import_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_index, uint32_t function_name)
+static inline bool read_import_function_name(FILE* pe_file, PE_Information* megastructure_information, uint32_t import_dll_index, uint32_t function_lookup_index)
 {
-    uint32_t index = megastructure_information->import_dll[import_index].function_number++;
-    return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_index][function_name] + 2, &(megastructure_information->import_dll[import_index].function_names[index]));
+    uint32_t index = megastructure_information->import_dll[import_dll_index].function_number++;
+    return read_single_name(pe_file, megastructure_information->image_lookup_descriptors[import_dll_index][function_lookup_index] + 2, &(megastructure_information->import_dll[import_dll_index].function_names[index]));
 }
 
 static inline bool read_export_module_name(FILE* pe_file, PE_Information* megastructure_information)
