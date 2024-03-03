@@ -5,3 +5,4 @@ certificate.der
 executables/*
 !executables/.gitkeep
 resource*
+fuzzed.exe

@@ -8,7 +8,7 @@ bool seek_forward(FILE* pe_file, uint32_t seek_addr)
     if (ftell(pe_file) > seek_addr)
     {
         #ifdef FUZZER_COMPLIANT
-            return rand()%100 != 0;
+            return rand()%1000 != 0;
         #else
             return false;
         #endif
