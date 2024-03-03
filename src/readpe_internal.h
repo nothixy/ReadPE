@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "safe_alloc.h"
 #include "readpe.h"
 
 #define MAX_NAME_SIZE 255

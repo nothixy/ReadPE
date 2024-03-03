@@ -41,7 +41,11 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 
         if(!last_import_desc)
         {
-            megastructure_information->image_imports = realloc(megastructure_information->image_imports, (megastructure_information->image_import_count + 1) * sizeof(PE_Image_Import_Descriptor));
+            megastructure_information->image_imports = safe_realloc(megastructure_information->image_imports, (megastructure_information->image_import_count + 1) * sizeof(PE_Image_Import_Descriptor));
+            if(megastructure_information->image_imports == NULL)
+            {
+                return false;
+            }
             megastructure_information->image_imports[megastructure_information->image_import_count] = import_descriptor;
 
             megastructure_information->image_imports[megastructure_information->image_import_count].name = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, import_descriptor.name);
@@ -53,8 +57,16 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 
     if (megastructure_information->image_import_count != 0)
     {
-        megastructure_information->import_dll = calloc(megastructure_information->image_import_count, sizeof(PE_DLL));
-        megastructure_information->image_lookup_descriptors = calloc(megastructure_information->image_import_count, sizeof(uint32_t*));
+        megastructure_information->import_dll = safe_calloc(megastructure_information->image_import_count * sizeof(PE_DLL));
+        if(megastructure_information->import_dll == NULL)
+        {
+            return false;
+        }
+        megastructure_information->image_lookup_descriptors = safe_calloc(megastructure_information->image_import_count * sizeof(uint32_t*));
+        if(megastructure_information->image_lookup_descriptors == NULL)
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -70,7 +82,7 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
 
     int64_t x;
     int count = 0;
-    megastructure_information->image_lookup_descriptors[import_index] = malloc(0);
+    megastructure_information->image_lookup_descriptors[import_index] = NULL;
     do
     {
         x = read_lookup_descriptor(pe_file, megastructure_information);
@@ -84,13 +96,21 @@ static bool read_import_lookup_descriptors(FILE* pe_file, PE_Information* megast
             continue;
         }
 
-        megastructure_information->image_lookup_descriptors[import_index] = (uint32_t*) realloc(megastructure_information->image_lookup_descriptors[import_index], (count + 1) * sizeof(uint32_t));
+        megastructure_information->image_lookup_descriptors[import_index] = (uint32_t*) safe_realloc(megastructure_information->image_lookup_descriptors[import_index], (count + 1) * sizeof(uint32_t));
+        if(megastructure_information->image_lookup_descriptors[import_index] == NULL)
+        {
+            return false;
+        }
         
         megastructure_information->image_lookup_descriptors[import_index][count] = (uint32_t)x;
         count++;
     } while(x != LOOKUP_DESCRIPTOR_END);
 
-    megastructure_information->import_dll[import_index].function_names = calloc(count, sizeof(char*));
+    megastructure_information->import_dll[import_index].function_names = safe_calloc(count * sizeof(char*));
+    if(megastructure_information->import_dll[import_index].function_names == NULL)
+    {
+        return false;
+    }
     return true;
 }
 
@@ -445,7 +465,12 @@ PE_Information* read_pe(const char* filename)
         goto ERROR;
     }
 
-    megastructure_information = (PE_Information*) calloc(1, sizeof(PE_Information));
+    megastructure_information = (PE_Information*) safe_calloc(1 * sizeof(PE_Information));
+    if(megastructure_information == NULL)
+    {
+        goto ERROR;
+    }
+
 
     if(fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file) <= 0
         || fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file) <= 0
@@ -464,7 +489,7 @@ PE_Information* read_pe(const char* filename)
         }
     }
 
-    megastructure_information->section_headers = malloc(coff_header.section_count * sizeof(PE_Section_Header));
+    megastructure_information->section_headers = safe_malloc(coff_header.section_count * sizeof(PE_Section_Header));
     if (megastructure_information->section_headers == NULL)
     {
         fputs("An error has occurred\n", stderr);

@@ -40,8 +40,16 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
     uint32_t filepos;
     do
     {
-        megastructure_information->signature_length = realloc(megastructure_information->signature_length, (megastructure_information->signature_count + 1) * sizeof(uint32_t));
-        megastructure_information->signature = realloc(megastructure_information->signature, (megastructure_information->signature_count + 1) * sizeof(uint8_t*));
+        megastructure_information->signature_length = safe_realloc(megastructure_information->signature_length, (megastructure_information->signature_count + 1) * sizeof(uint32_t));
+        if(megastructure_information->signature_length == NULL)
+        {
+            return false;
+        }
+        megastructure_information->signature = safe_realloc(megastructure_information->signature, (megastructure_information->signature_count + 1) * sizeof(uint8_t*));
+        if(megastructure_information->signature == NULL)
+        {
+            return false;
+        }
         uint16_t version;
         uint16_t type;
         if(fread(&(megastructure_information->signature_length[megastructure_information->signature_count]), sizeof(uint32_t), 1, pe_file) <= 0)
@@ -72,7 +80,11 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
         }
 
         megastructure_information->signature_length[megastructure_information->signature_count] -= (2 * sizeof(uint16_t) + sizeof(uint32_t));
-        megastructure_information->signature[megastructure_information->signature_count] = malloc(megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t));
+        megastructure_information->signature[megastructure_information->signature_count] = safe_malloc(megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t));
+        if(megastructure_information->signature[megastructure_information->signature_count] == NULL)
+        {
+            return false;
+        }
         if (fread(megastructure_information->signature[megastructure_information->signature_count], megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t), 1, pe_file) != 1)
         {
             return false;
@@ -99,7 +111,11 @@ bool read_single_name(FILE* pe_file, size_t seek_pos, char** name_addr)
         return false;
     }
 
-    *name_addr = malloc(MAX_NAME_SIZE+1);
+    *name_addr = safe_malloc(MAX_NAME_SIZE+1);
+    if(*name_addr == NULL)
+    {
+        return false;
+    }
     
     do
     {
@@ -134,8 +150,16 @@ bool read_export_directory(FILE* pe_file, PE_Information* megastructure_informat
     megastructure_information->image_export.name_pointer = find_offset_from_rva(megastructure_information->section_count, megastructure_information->section_headers, megastructure_information->image_export.name_pointer);
     if (megastructure_information->image_export.name_count != 0)
     {
-        megastructure_information->export_module_functions = calloc(megastructure_information->image_export.name_count, sizeof(char*));
-        megastructure_information->export_module_function_pointers = calloc(megastructure_information->image_export.name_count, sizeof(uint32_t));
+        megastructure_information->export_module_functions = safe_calloc(megastructure_information->image_export.name_count * sizeof(char*));
+        if(megastructure_information->export_module_functions == NULL)
+        {
+            return false;
+        }
+        megastructure_information->export_module_function_pointers = safe_calloc(megastructure_information->image_export.name_count * sizeof(uint32_t));
+        if(megastructure_information->export_module_function_pointers == NULL)
+        {
+            return false;
+        }
     }
 
     return true;
@@ -188,7 +212,11 @@ bool read_resource_by_index(FILE* pe_file, PE_Information* megastructure_informa
         fputs("Seek back forbidden !\n", stderr);
         return false;
     }
-    megastructure_information->resource_raw_data[index] = calloc(megastructure_information->resource_information[index].size, sizeof(uint8_t));
+    megastructure_information->resource_raw_data[index] = safe_calloc(megastructure_information->resource_information[index].size * sizeof(uint8_t));
+    if(megastructure_information->resource_raw_data[index] == NULL)
+    {
+        return false;
+    }
     return fread(megastructure_information->resource_raw_data[index], megastructure_information->resource_information[index].size * sizeof(uint8_t), 1, pe_file) == 1;
 }
 
@@ -200,8 +228,16 @@ bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_infor
         fputs("Seek back forbidden !\n", stderr);
         return false;
     }
-    megastructure_information->resource_information = realloc(megastructure_information->resource_information, (megastructure_information->resource_count + 1) * sizeof(PE_Resource_Data_Entry));
-    megastructure_information->resource_raw_data = realloc(megastructure_information->resource_raw_data, (megastructure_information->resource_count + 1) * sizeof(uint8_t*));
+    megastructure_information->resource_information = safe_realloc(megastructure_information->resource_information, (megastructure_information->resource_count + 1) * sizeof(PE_Resource_Data_Entry));
+    if(megastructure_information->resource_information == NULL)
+    {
+        return false;
+    }
+    megastructure_information->resource_raw_data = safe_realloc(megastructure_information->resource_raw_data, (megastructure_information->resource_count + 1) * sizeof(uint8_t*));
+    if(megastructure_information->resource_raw_data == NULL)
+    {
+        return false;
+    }
     megastructure_information->resource_raw_data[megastructure_information->resource_count] = NULL;
     if (fread(&megastructure_information->resource_information[megastructure_information->resource_count], sizeof(PE_Resource_Data_Entry), 1, pe_file) <= 0)
     {
@@ -222,11 +258,23 @@ bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructur
         fputs("Seek back forbidden !\n", stderr);
         return false;
     }
-    megastructure_information->resource_tables = realloc(megastructure_information->resource_tables, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Table));
-    megastructure_information->resource_entries = realloc(megastructure_information->resource_entries, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Entry*));
+    megastructure_information->resource_tables = safe_realloc(megastructure_information->resource_tables, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Table));
+    if(megastructure_information->resource_tables == NULL)
+    {
+        return false;
+    }
+    megastructure_information->resource_entries = safe_realloc(megastructure_information->resource_entries, (megastructure_information->resource_table_count + 1) * sizeof(PE_Resource_Directory_Entry*));
+    if(megastructure_information->resource_entries == NULL)
+    {
+        return false;
+    }
     fread(&megastructure_information->resource_tables[megastructure_information->resource_table_count], sizeof(PE_Resource_Directory_Table), 1, pe_file);
     uint32_t entry_count = megastructure_information->resource_tables[megastructure_information->resource_table_count].id_entry_count + megastructure_information->resource_tables[megastructure_information->resource_table_count].named_entry_count;
-    megastructure_information->resource_entries[megastructure_information->resource_table_count] = calloc(entry_count, sizeof(PE_Resource_Directory_Entry));
+    megastructure_information->resource_entries[megastructure_information->resource_table_count] = safe_calloc(entry_count * sizeof(PE_Resource_Directory_Entry));
+    if(megastructure_information->resource_entries[megastructure_information->resource_table_count] == NULL)
+    {
+        return false;
+    }
     for (uint32_t i = 0; i < entry_count; i++)
     {
         if (fread(&megastructure_information->resource_entries[megastructure_information->resource_table_count][i], sizeof(PE_Resource_Directory_Entry), 1, pe_file) <= 0)
