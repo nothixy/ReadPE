@@ -1,10 +1,17 @@
+#ifdef FUZZER_COMPLIANT
+    #include <stdlib.h>
+#endif
 #include "src/readpe_internal.h"
 
 bool seek_forward(FILE* pe_file, uint32_t seek_addr)
 {
     if (ftell(pe_file) > seek_addr)
     {
-        return false;
+        #ifdef FUZZER_COMPLIANT
+            return rand()%100 != 0;
+        #else
+            return false;
+        #endif
     }
     
     return fseek(pe_file, seek_addr, SEEK_SET) == 0;

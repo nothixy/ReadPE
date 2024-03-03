@@ -510,6 +510,12 @@ PE_Information* read_pe(const char* filename)
         FILE* res = fopen(resource_filepath, "wb");
         if (res != NULL)
         {
+            if(megastructure_information->resource_raw_data[i] == NULL)
+            {
+                fprintf(stderr, "resource_raw_data[i] is NULL, this should not be possible, fix that !!\n");
+                fclose(res);
+                continue;
+            }
             fwrite(megastructure_information->resource_raw_data[i], sizeof(uint8_t), megastructure_information->resource_information[i].size, res);
             fclose(res);
         }
@@ -553,7 +559,14 @@ ERROR:
 
 static void free_dll_elements(PE_DLL* dll)
 {
-    if(dll == NULL || dll->function_names == NULL)
+    if(dll == NULL)
+    {
+        return;
+    }
+
+    free(dll->name);
+
+    if(dll->function_names == NULL)
     {
         return;
     }
@@ -563,7 +576,6 @@ static void free_dll_elements(PE_DLL* dll)
         free(dll->function_names[i]);
     }
     free(dll->function_names);
-    free(dll->name);
 }
 
 
