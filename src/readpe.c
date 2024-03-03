@@ -539,7 +539,7 @@ ERROR:
     return NULL;
 }
 
-void free_dll_functions(PE_DLL* dll)
+static void free_dll_elements(PE_DLL* dll)
 {
     if(dll == NULL || dll->function_names == NULL)
     {
@@ -550,6 +550,8 @@ void free_dll_functions(PE_DLL* dll)
     {
         free(dll->function_names[i]);
     }
+    free(dll->function_names);
+    free(dll->name);
 }
 
 
@@ -571,7 +573,7 @@ void free_megastructure(PE_Information** pps)
     {
         for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
         {
-            free_dll_functions(&((*pps)->import_dll[i]));
+            free_dll_elements(&((*pps)->import_dll[i]));
         }
     }
     if ((*pps)->image_lookup_descriptors != NULL)
