@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     
-    PE_Information* pe_information = read_pe(argv[1]);
+    PE_Information* pe_information = read_pe(argv[1], PE_READ_IMPORT_ENTRIES);
     if(pe_information == NULL)
     {
         return 1;
@@ -41,6 +41,11 @@ int main(int argc, char* argv[])
         {
             printf("Function = %s\n", pe_information->export_module_functions[i]);
         }
+    }
+
+    for(uint16_t i = 0; i < pe_information->section_count; i++)
+    {
+        printf("section %s: %x\n", pe_information->section_headers[i].name, pe_information->section_headers[i].raw_data_pointer);
     }
 
     free_megastructure(&pe_information);

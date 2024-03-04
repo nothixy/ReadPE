@@ -21,7 +21,7 @@ static bool read_import_table(FILE* pe_file, PE_Information* megastructure_infor
 {
     bool last_import_desc = false;
 
-    if(!seek_forward(pe_file, megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address))
+    if(!seek_forward(pe_file, megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_IMPORT].address))
     {
         fputs("Seek back forbidden !\n", stderr);
         return false;
@@ -137,7 +137,7 @@ static bool read_export_function_name_pointers(FILE* pe_file, PE_Information* me
 
 static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
 {
-    for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
+    for (int i = 0; i < _IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
         if (megastructure_information->directory_addresses[i].address != min_address)
         {
@@ -145,28 +145,28 @@ static enum SEARCH_RESPONSE search_addr_in_directory_addresses(FILE* pe_file, PE
         }
         switch (i)
         {
-            case IMAGE_DIRECTORY_ENTRY_EXPORT:
+            case _IMAGE_DIRECTORY_ENTRY_EXPORT:
                 if(!read_export_directory(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_EXPORT].address = 0;
+                megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_EXPORT].address = 0;
                 break;
-            case IMAGE_DIRECTORY_ENTRY_IMPORT:
+            case _IMAGE_DIRECTORY_ENTRY_IMPORT:
                 if(!read_import_table(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_IMPORT].address = 0;
+                megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_IMPORT].address = 0;
                 break;
-            case IMAGE_DIRECTORY_ENTRY_SECURITY:
+            case _IMAGE_DIRECTORY_ENTRY_SECURITY:
                 if(!read_certificate(pe_file, megastructure_information))
                 {
                     return SEARCH_ERROR;
                 }
-                megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_SECURITY].address = 0;
+                megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_SECURITY].address = 0;
                 break;
-            case IMAGE_DIRECTORY_ENTRY_RESOURCE:
+            case _IMAGE_DIRECTORY_ENTRY_RESOURCE:
                 return SEARCH_NOT_FOUND;
             default:
                 return SEARCH_ERROR;  // this is not supposed to happened
@@ -262,13 +262,13 @@ static enum SEARCH_RESPONSE search_addr_in_export_module(FILE* pe_file, PE_Infor
 
 static enum SEARCH_RESPONSE search_addr_in_resource_entry(FILE* pe_file, PE_Information* megastructure_information, uint64_t min_address)
 {
-    if (megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address == min_address)
+    if (megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_RESOURCE].address == min_address)
     {
         if (!read_resource_table_and_entries(pe_file, megastructure_information, min_address))
         {
             return SEARCH_ERROR;
         }
-        megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address = 0;
+        megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_RESOURCE].address = 0;
         return SEARCH_FOUND;
     }
     for (uint32_t i = 0; i < megastructure_information->resource_table_count; i++)
@@ -447,7 +447,7 @@ static bool check_pe_headers(FILE* pe_file, PE_Optional_Header* pe_optional_head
 }
 
 
-PE_Information* read_pe(const char* filename)
+PE_Information* read_pe(const char* filename, uint16_t to_read_flags)
 {
     PE_Information* megastructure_information = NULL;
     PE_Optional_Header pe_optional_header = {.data_directory = NULL};
@@ -474,15 +474,15 @@ PE_Information* read_pe(const char* filename)
 
     if(fread(&(pe_optional_header.loader_flags), sizeof(uint32_t), 1, pe_file) <= 0
         || fread(&(pe_optional_header.rva_number_size), sizeof(uint32_t), 1, pe_file) <= 0
-        || fread(megastructure_information->directory_addresses, sizeof(PE_Data_Directory), IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
+        || fread(megastructure_information->directory_addresses, sizeof(PE_Data_Directory), _IMAGE_DIRECTORY_ENTRY_NB_ARGS, pe_file) <= 0)
     {
         fputs("Error: file corrupted\n", stderr);
         goto ERROR;
     }
 
-    if (pe_optional_header.rva_number_size > IMAGE_DIRECTORY_ENTRY_NB_ARGS)
+    if (pe_optional_header.rva_number_size > _IMAGE_DIRECTORY_ENTRY_NB_ARGS)
     {
-        if(!seek_forward(pe_file, (pe_optional_header.rva_number_size - IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory)))
+        if(!seek_forward(pe_file, (pe_optional_header.rva_number_size - _IMAGE_DIRECTORY_ENTRY_NB_ARGS) * sizeof(PE_Data_Directory)))
         {
             fputs("Seek back forbidden !\n", stderr);
             goto ERROR;
@@ -503,21 +503,23 @@ PE_Information* read_pe(const char* filename)
 
     megastructure_information->section_count = coff_header.section_count;
 
-    for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
+    for (int i = 0; i < _IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
-        if (i != IMAGE_DIRECTORY_ENTRY_SECURITY)  // because security is an absolute addr
+        if (i != _IMAGE_DIRECTORY_ENTRY_SECURITY)  // because security is an absolute addr
         {
             megastructure_information->directory_addresses[i].address = find_offset_from_rva(coff_header.section_count, megastructure_information->section_headers, megastructure_information->directory_addresses[i].address);
         }
 
         // Temporary because I can't parse other information
-        if (i != IMAGE_DIRECTORY_ENTRY_EXPORT && i != IMAGE_DIRECTORY_ENTRY_IMPORT && i != IMAGE_DIRECTORY_ENTRY_SECURITY && i != IMAGE_DIRECTORY_ENTRY_RESOURCE)
+        to_read_flags &= PE_READ_EXPORT_ENTRIES | PE_READ_IMPORT_ENTRIES | PE_READ_SECURITY_ENTRIES | PE_READ_RESOURCE_ENTRIES;
+
+        if((to_read_flags & (1 << i)) == 0)
         {
             megastructure_information->directory_addresses[i].address = 0;
         }
     }
 
-    megastructure_information->rsrc_base = megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
+    megastructure_information->rsrc_base = megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
     megastructure_information->bits_64 = (pe_optional_header.signature == PE_OPTIONAL_HEADER_SIGNATURE_64);
 
     if(!read_all_data(pe_file, megastructure_information))
