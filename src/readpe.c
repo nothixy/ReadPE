@@ -589,7 +589,7 @@ static void free_dll_elements(PE_DLL* dll)
         return;
     }
 
-    free(dll->name);
+    safe_free(dll->name);
 
     if(dll->function_names == NULL)
     {
@@ -598,9 +598,9 @@ static void free_dll_elements(PE_DLL* dll)
 
     for(uint32_t i = 0; i < dll->function_number; i++)
     {
-        free(dll->function_names[i]);
+        safe_free(dll->function_names[i]);
     }
-    free(dll->function_names);
+    safe_free(dll->function_names);
 }
 
 
@@ -613,11 +613,11 @@ void free_megastructure(PE_Information** pps)
 
     for (uint32_t i = 0; i < (*pps)->signature_count; i++)
     {
-        free((*pps)->signature[i]);
+        safe_free((*pps)->signature[i]);
     }
-    free((*pps)->signature_length);
-    free((*pps)->signature);
-    free((*pps)->section_headers);
+    safe_free((*pps)->signature_length);
+    safe_free((*pps)->signature);
+    safe_free((*pps)->section_headers);
     if ((*pps)->import_dll != NULL)
     {
         for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
@@ -629,35 +629,35 @@ void free_megastructure(PE_Information** pps)
     {
         for (uint32_t i = 0; i < (*pps)->image_import_count; i++)
         {
-            free(((*pps)->image_lookup_descriptors)[i]);
+            safe_free(((*pps)->image_lookup_descriptors)[i]);
         }
     }
     if ((*pps)->export_module_functions != NULL)
     {
         for (uint32_t i = 0; i < (*pps)->image_export.name_count; i++)
         {
-            free((*pps)->export_module_functions[i]);
+            safe_free((*pps)->export_module_functions[i]);
         }
     }
     for (uint32_t i = 0; i < (*pps)->resource_table_count; i++)
     {
-        free((*pps)->resource_entries[i]);
+        safe_free((*pps)->resource_entries[i]);
     }
     for (uint32_t i = 0; i < (*pps)->resource_count; i++)
     {
-        free((*pps)->resource_raw_data[i]);
+        safe_free((*pps)->resource_raw_data[i]);
     }
-    free((*pps)->resource_raw_data);
-    free((*pps)->resource_entries);
-    free((*pps)->resource_tables);
-    free((*pps)->resource_information);
-    free((*pps)->export_module_function_pointers);
-    free((*pps)->export_module_functions);
-    free((*pps)->export_module_name);
-    free((*pps)->image_imports);
-    free((*pps)->import_dll);
-    free((*pps)->image_lookup_descriptors);
+    safe_free((*pps)->resource_raw_data);
+    safe_free((*pps)->resource_entries);
+    safe_free((*pps)->resource_tables);
+    safe_free((*pps)->resource_information);
+    safe_free((*pps)->export_module_function_pointers);
+    safe_free((*pps)->export_module_functions);
+    safe_free((*pps)->export_module_name);
+    safe_free((*pps)->image_imports);
+    safe_free((*pps)->import_dll);
+    safe_free((*pps)->image_lookup_descriptors);
 
-    free(*pps);
+    safe_free(*pps);
     *pps = NULL;
 }

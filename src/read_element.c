@@ -87,6 +87,7 @@ bool read_certificate(FILE* pe_file, PE_Information* megastructure_information)
         }
         if (fread(megastructure_information->signature[megastructure_information->signature_count], megastructure_information->signature_length[megastructure_information->signature_count] * sizeof(uint8_t), 1, pe_file) != 1)
         {
+            megastructure_information->signature_count++;
             return false;
         }
         megastructure_information->signature_count++;
