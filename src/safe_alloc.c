@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "src/safe_alloc.h"
 
 #define MAX_ALLOC 2097152  // 2 Mo
@@ -53,7 +54,10 @@ void* safe_calloc(size_t n)
 void* __attribute_warn_unused_result__ safe_realloc(void* ptr, size_t n)
 {
     if(n > MAX_ALLOC)
+    {
+        safe_free(ptr);
         return NULL;
+    }
     
     size_t old = 0;
 
@@ -62,6 +66,7 @@ void* __attribute_warn_unused_result__ safe_realloc(void* ptr, size_t n)
 
     if(_total_alloc - old + n > MAX_ALLOC_TOTAL)
     {
+        safe_free(ptr);
         return NULL;
     }
 
