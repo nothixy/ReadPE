@@ -1,20 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include "src/readpe.h"
 
-uint16_t generate_random_flags_and_reset_seed()
+uint16_t generate_random_flags(const uint8_t *data, size_t size)
 {
-    uint16_t r;
-    struct timespec t;
-
-    clock_gettime(CLOCK_REALTIME, &t);
-
-    srand(t.tv_nsec);
-    r = rand();
-    srand(1);
-
-    return r;
+    if(size < sizeof(uint16_t))
+    {
+        return PE_READ_EVERYTHING;
+    }
+    size /= sizeof(uint16_t);
+    if(size > 100)
+    {
+        size = 100;
+    }
+    uint16_t r = 0;
+    for(size_t i = 1; i <= size; i++)
+    {
+        r ^= ((uint16_t*)data)[size - i];
+    }
+    return  r;
 }
 
 extern int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
@@ -27,8 +31,9 @@ extern int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)
     fwrite(Data, sizeof(uint8_t), Size, test_file);
     fclose(test_file);
 
+    uint16_t flags = (uint16_t)generate_random_flags(Data, Size);
 
-    uint16_t flags = (uint16_t)generate_random_flags_and_reset_seed();
+    srand(1);
 
     printf("start parsing a file of size %lu with flags %d\n", Size, flags);
 
