@@ -196,7 +196,7 @@ int64_t read_lookup_descriptor(FILE* pe_file, PE_Information* megastructure_info
         lookup_descriptor = lookup_descriptor32;
     }
 
-    uint32_t rva = lookup_descriptor & ((uint32_t) (1 << 31) - 1);
+    uint32_t rva = lookup_descriptor & ((uint32_t) (1U << 31) - 1);
     if (rva == 0 && (!megastructure_information->bits_64 || (uint32_t) (lookup_descriptor >> 31) == 0))
     {
         return LOOKUP_DESCRIPTOR_END;
@@ -253,7 +253,7 @@ bool read_resource_data_entry(FILE* pe_file, PE_Information* megastructure_infor
 
 bool read_resource_table_and_entries(FILE* pe_file, PE_Information* megastructure_information, uint32_t table_address)
 {
-    uint32_t first_bit_mask = (1 << 31);
+    uint32_t first_bit_mask = (1U << 31);
     if(!seek_forward(pe_file, table_address))
     {
         fputs("Seek back forbidden !\n", stderr);

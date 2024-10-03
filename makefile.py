@@ -5,7 +5,7 @@ def on_build(config: powermake.Config):
     files = powermake.get_files("**/*.c")
 
     config.add_includedirs("./")
-    config.add_c_cpp_flags("-Weverything")
+    config.add_c_cpp_flags("-Wall", "-Wextra", "-fanalyzer")
 
     objects = powermake.compile_files(config, files)
 
