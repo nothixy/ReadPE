@@ -92,7 +92,7 @@ static uint64_t get_min_addr_export_module(PE_Information* megastructure_informa
 
 static uint64_t get_min_addr_resource_entry(PE_Information* megastructure_information, uint64_t min_address)
 {
-    uint32_t rsrc_address = megastructure_information->directory_addresses[IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
+    uint32_t rsrc_address = megastructure_information->directory_addresses[_IMAGE_DIRECTORY_ENTRY_RESOURCE].address;
     if (rsrc_address != 0 && rsrc_address < min_address)
     {
         min_address = rsrc_address;
@@ -121,7 +121,7 @@ static uint64_t get_min_addr_resource_entry(PE_Information* megastructure_inform
 uint64_t get_min_addr(PE_Information* megastructure_information)
 {
     uint64_t min_address = (uint64_t) -1;
-    for (int i = 0; i < IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
+    for (int i = 0; i < _IMAGE_DIRECTORY_ENTRY_NB_ARGS; i++)
     {
         if (megastructure_information->directory_addresses[i].address != 0 && megastructure_information->directory_addresses[i].address < min_address)
         {
